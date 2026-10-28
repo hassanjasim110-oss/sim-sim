@@ -1,0 +1,934 @@
+<title>SIM SIM Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap">
+<style>
+/* Layout: chat app — warm sidebar left, roomy centered conversation right, rounded composer pinned at the bottom */
+:root{
+  --bg:#fffaf5; --side:#fbf1e6; --surface:#ffffff; --line:#efe2d3;
+  --fg:#2a211b; --muted:#8c7a6b; --bubble:#f6ebdf;
+  --accent:#ff7847; --accent2:#ffb03a; --ink:#2a211b; --onink:#fffaf5;
+  --ok-bg:#e9f6ea; --ok-fg:#1d6b34; --ok-dot:#2fb45a;
+  --think-bg:#fff1dc; --think-fg:#8a4b00;
+  --display:'Poppins',Verdana,Geneva,sans-serif;
+  --body:Verdana,Geneva,sans-serif;
+  --r-lg:22px; --r-md:14px; --shadow:0 6px 24px rgba(120,70,30,.08);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1d1814; --side:#241e19; --surface:#2b241e; --line:#3a3029;
+  --fg:#f3e9df; --muted:#b09d8d; --bubble:#352c25;
+  --ink:#f3e9df; --onink:#1d1814;
+  --ok-bg:#1f3325; --ok-fg:#9fe0b0; --ok-dot:#43c76c;
+  --think-bg:#3a2c18; --think-fg:#ffcf8a; --shadow:0 6px 24px rgba(0,0,0,.35);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1d1814; --side:#241e19; --surface:#2b241e; --line:#3a3029;
+  --fg:#f3e9df; --muted:#b09d8d; --bubble:#352c25;
+  --ink:#f3e9df; --onink:#1d1814;
+  --ok-bg:#1f3325; --ok-fg:#9fe0b0; --ok-dot:#43c76c;
+  --think-bg:#3a2c18; --think-fg:#ffcf8a; --shadow:0 6px 24px rgba(0,0,0,.35);
+  color-scheme:dark}
+html,body{height:100%}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.6}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:flex;height:100%}
+
+/* sidebar */
+.side{width:264px;flex-shrink:0;background:var(--side);border-right:1px solid var(--line);
+  padding-block:22px 16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;
+  display:flex;flex-direction:column;gap:6px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:19px;padding:0 8px 14px}
+.avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;background:linear-gradient(140deg,var(--accent2),var(--accent));
+  color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:15px}
+.newchat{background:var(--ink);color:var(--onink);border-radius:var(--r-md);padding:11px 14px;font-weight:700;
+  text-align:left;margin-bottom:12px;display:flex;gap:8px;align-items:center}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 12px;border-radius:12px;font-size:15px}
+.nav button:hover{background:var(--bubble)}
+.nav button.on{background:var(--bubble);font-weight:700}
+.nav svg{width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.badge{margin-left:auto;background:var(--accent);color:#fff;border-radius:10px;font-size:12px;padding:0 8px;font-variant-numeric:tabular-nums}
+.side h4{font-family:var(--display);font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin:16px 12px 4px}
+.hist{font-size:14px;color:var(--muted);padding:6px 12px}
+.foot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 8px 0;border-top:1px solid var(--line);font-weight:700}
+.foot .me{width:30px;height:30px;border-radius:50%;background:var(--bubble);display:grid;place-items:center;font-family:var(--display);font-size:13px}
+.note{font-size:13px;color:var(--muted);padding:4px 12px;min-height:22px}
+
+/* main */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding-block:14px;padding-left:24px;padding-right:max(24px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line)}
+.top .t{font-family:var(--display);font-weight:700;font-size:17px;display:flex;align-items:center;gap:10px}
+.menu{display:none}
+.controls{display:flex;gap:10px;align-items:center}
+.pill{display:flex;align-items:center;gap:8px;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;background:var(--ok-bg);color:var(--ok-fg)}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:var(--ok-dot)}
+.pill.busy{background:var(--think-bg);color:var(--think-fg)}
+.pill.busy .dot{background:var(--accent);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.3}}
+.speak{border-radius:20px;padding:6px 14px;font-size:13px;background:var(--bubble)}
+.speak b{color:var(--accent)}
+
+.thread{flex:1;overflow-y:auto;padding-block:28px 12px}
+.col{max-width:720px;margin:0 auto;padding-left:24px;padding-right:24px;display:flex;flex-direction:column;gap:22px}
+.example{align-self:center;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-family:var(--display);font-weight:600}
+.msg{display:flex;gap:12px;align-items:flex-start}
+.msg .avatar{width:30px;height:30px;font-size:13px}
+.msg .body{min-width:0;padding-top:3px}
+.msg .name{font-size:12px;color:var(--muted);font-family:var(--display);font-weight:600}
+.user{align-self:flex-end;background:var(--bubble);border-radius:var(--r-lg) var(--r-lg) 6px var(--r-lg);padding:12px 18px;max-width:78%}
+.cite{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 16px;font-size:14px;box-shadow:var(--shadow)}
+.cite .lbl{font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
+.cite q{display:block;margin:6px 0;font-style:italic}
+.cite a{color:var(--fg);word-break:break-word}
+.typing span{display:inline-block;width:7px;height:7px;margin-right:4px;border-radius:50%;background:var(--muted);animation:blink 1s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+
+.composer{padding-block:12px 20px;padding-left:24px;padding-right:max(24px,env(safe-area-inset-right,0px))}
+.cbox{max-width:720px;margin:0 auto;background:var(--surface);border:1.5px solid var(--line);border-radius:28px;
+  padding:8px 8px 8px 20px;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
+.cbox input{flex:1;min-width:0;border:0;background:none;font:inherit;color:var(--fg);padding:8px 0}
+.cbox input:focus{outline:none}
+.cbox:focus-within{border-color:var(--accent)}
+.round{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;flex-shrink:0}
+.round svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mic{background:var(--accent)}
+.send{background:var(--ink)}
+.send svg{stroke:var(--onink)}
+.cap{max-width:720px;margin:10px auto 0;text-align:center;font-size:13px;color:var(--muted)}
+
+@media (max-width:760px){
+  .side{position:fixed;inset:0 auto 0 0;z-index:20;transform:translateX(-100%);transition:transform .25s;box-shadow:var(--shadow)}
+  .side.open{transform:none}
+  .menu{display:grid;width:34px;height:34px;border-radius:10px;place-items:center;background:var(--bubble)}
+  .top{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .col{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .composer{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .user{max-width:90%}
+}
+/* doodle chat background: messages sit in bubbles so they stay easy to read */
+.thread{background-image:var(--doodle,none);background-size:170px 170px}
+.msg .body{background:var(--surface);border:1px solid var(--line);border-radius:6px 18px 18px 18px;padding:8px 14px}
+.user{border:1px solid var(--line)}
+.example{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:2px 10px}
+
+/* group chat */
+.vsub{color:var(--muted);font-weight:600}
+.vsub:not(:empty)::before{content:"·";margin:0 8px}
+.team{border-bottom:1px solid var(--line);background:var(--surface);padding-block:12px;padding-left:24px;padding-right:max(24px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:8px}
+.team-row{display:flex;flex-wrap:wrap;gap:10px 28px;max-width:720px;width:100%;margin:0 auto}
+.member{display:flex;align-items:center;gap:10px;min-width:0}
+.member .avatar{width:34px;height:34px;font-size:14px}
+.avatar.b1{background:var(--bubble);color:var(--accent);border:1.5px solid var(--accent)}
+.avatar.b2{background:var(--ink);color:var(--onink)}
+.mtxt{display:flex;flex-direction:column;line-height:1.3;min-width:0}
+.mtxt b,.bname{font-family:var(--display);font-weight:700;font-size:15px;text-align:left}
+.bname{text-decoration:underline dotted;text-underline-offset:3px}
+.bname:hover{color:var(--accent)}
+.mtxt small{font-size:12px;color:var(--muted)}
+.rename{max-width:720px;width:100%;margin:0 auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rename label{font-family:var(--display);font-weight:600;font-size:13px}
+.rename input{font:inherit;color:var(--fg);background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:6px 12px;min-width:0;flex:1;max-width:240px}
+.rename input:focus{outline:none;border-color:var(--accent)}
+.mini-btn{border:1.5px solid var(--line);border-radius:12px;padding:6px 14px;font-family:var(--display);font-weight:600;font-size:13px}
+.mini-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tally{max-width:720px;width:100%;margin:0 auto;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.gnote{align-self:center;text-align:center;max-width:48ch;font-size:14px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:10px 16px}
+.gturn{display:flex;flex-direction:column;gap:12px}
+.gmsg{background:var(--surface);border:1px solid var(--line);border-radius:6px 18px 18px 18px;padding:10px 14px;display:flex;flex-direction:column;gap:6px;max-width:92%}
+.ghead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ghead .avatar{width:26px;height:26px;font-size:12px}
+.ghead b{font-family:var(--display);font-size:14px}
+.ghead small{font-size:12px;color:var(--muted)}
+.yourpick{display:none;margin-left:auto;background:var(--accent);color:#fff;border-radius:10px;font-size:11px;font-weight:700;padding:1px 9px;font-family:var(--display);letter-spacing:.5px}
+.gbody{min-width:0}
+.pickbtn{align-self:flex-start;border:1.5px solid var(--accent);color:var(--accent);border-radius:12px;padding:4px 12px;font-family:var(--display);font-weight:700;font-size:13px}
+.pickbtn:hover{background:var(--bubble)}
+.fold{display:none;text-align:left;font-size:13px;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+.gmsg.picked{border:2px solid var(--accent)}
+.gmsg.picked .yourpick{display:inline-block}
+.gmsg.picked .pickbtn{display:none}
+.gmsg.folded{padding:6px 14px}
+.gmsg.folded>:not(.fold){display:none}
+.gmsg.folded .fold{display:block}
+.gturn.locked .pickbtn{display:none}
+.gturn.locked .gmsg:not(.picked):not(.folded){opacity:.85}
+
+/* wake by name */
+.pill.awake{background:var(--accent);color:#fff}.pill.awake .dot{background:#fff;animation:blink .8s infinite}
+.pill.warn{background:var(--think-bg);color:var(--think-fg)}.pill.warn .dot{background:var(--think-fg)}
+.help{margin:12px auto 0;max-width:720px;width:calc(100% - 48px);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:12px 16px;font-size:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px}
+.quiet{font-size:13px;color:var(--muted)}
+.live{display:flex;gap:10px;align-items:baseline;max-width:720px;width:calc(100% - 48px);margin:12px auto 0;
+  background:var(--bubble);border-radius:var(--r-md);padding:10px 16px;font-size:15px}
+.live[hidden]{display:none}
+.live .lbl{font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);flex-shrink:0}
+.mic.on{box-shadow:0 0 0 5px var(--bubble);animation:blink 1.2s infinite}
+
+/* sign-in screen (design only, optional) */
+.gate{position:fixed;inset:0;z-index:40;background:var(--bg);display:grid;place-items:center;overflow-y:auto;
+  padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:28px;box-shadow:var(--shadow);
+  padding:36px 32px;display:flex;flex-direction:column;gap:14px;text-align:center}
+.card .avatar{width:56px;height:56px;font-size:24px;margin:0 auto}
+.card h1{font-family:var(--display);font-weight:800;font-size:28px;margin:0;text-wrap:balance}
+.card p{margin:0;color:var(--muted)}
+.card label{text-align:left;font-family:var(--display);font-weight:600;font-size:14px;margin-top:6px}
+.card input{font:inherit;color:var(--fg);background:var(--bg);border:1.5px solid var(--line);border-radius:16px;padding:13px 16px;width:100%}
+.card input:focus{outline:none;border-color:var(--accent)}
+.big{background:var(--accent);color:#fff;border-radius:18px;padding:14px;font-weight:700;font-family:var(--display);font-size:16px}
+.link{color:var(--muted);text-decoration:underline;font-size:14px;padding:4px}
+.err{color:var(--accent);font-size:14px;text-align:left;min-height:0}
+.flag{font-size:12px;letter-spacing:1px;text-transform:uppercase;font-family:var(--display);font-weight:600;color:var(--think-fg);background:var(--think-bg);border-radius:10px;padding:6px 10px}
+.env{width:64px;height:64px;margin:0 auto;stroke:var(--accent);fill:none;stroke-width:1.6;stroke-linejoin:round}
+.foot .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.foot .in{font-size:13px;font-weight:400;color:var(--muted);text-decoration:underline}
+/* landing page (signed-out front door) */
+.gate.land{display:block;place-items:initial;padding:0}
+.landing[hidden]{display:none}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.ltop{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.ltop-in{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px}
+.lbrand{padding:0}
+.ghost.small{padding:9px 18px;font-size:14px}
+.hero-in{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:48px;align-items:center;padding-block:64px 56px}
+.pitch{display:flex;flex-direction:column;gap:18px;min-width:0}
+.pitch h1{font-family:var(--display);font-weight:800;font-size:clamp(34px,5vw,54px);line-height:1.1;margin:0;text-wrap:balance;letter-spacing:-.5px}
+.pitch p{margin:0;font-size:18px;color:var(--muted);max-width:52ch}
+.herocard{display:flex;justify-content:flex-end;min-width:0}
+.card h2{font-family:var(--display);font-weight:800;font-size:24px;margin:0;text-wrap:balance}
+.small-note{font-size:13px;margin-top:-4px!important}
+.feat-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:20px;padding-block:8px 56px}
+.feat{grid-column:span 2;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:24px;display:flex;flex-direction:column;gap:10px}
+.feat:nth-child(n+4){grid-column:span 3}
+.feat h3{font-family:var(--display);font-weight:700;font-size:18px;margin:0}
+.feat p{margin:0;color:var(--muted);font-size:15px}
+.ficon{width:44px;height:44px;border-radius:14px;background:var(--bubble);display:grid;place-items:center}
+.ficon svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.strip{background:color-mix(in srgb,var(--accent) 14%,var(--bg));padding-block:44px;text-align:center}
+.strip h2{font-family:var(--display);font-weight:800;font-size:clamp(24px,3.4vw,34px);margin:0 0 10px;text-wrap:balance}
+.strip p{margin:0 auto;max-width:62ch}
+.privacy{padding-block:52px;text-align:center}
+.privacy p{margin:0 auto;max-width:56ch;color:var(--muted);font-size:17px}
+.lfoot{border-top:1px solid var(--line)}
+.lfoot-in{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-block:20px;color:var(--muted);font-size:14px}
+@media (max-width:860px){
+  .hero-in{grid-template-columns:1fr;gap:32px;padding-block:40px}
+  .herocard{justify-content:center}
+  .feat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .feat,.feat:nth-child(n+4){grid-column:span 1}
+  .feat:last-child{grid-column:span 2}
+}
+@media (max-width:560px){
+  .feat-grid{grid-template-columns:1fr}
+  .feat:last-child{grid-column:span 1}
+  .card{padding:28px 22px}
+}
+
+/* first-time setup */
+.card.wide{max-width:640px;text-align:left}
+.steps{font-family:var(--display);font-weight:600;font-size:13px;color:var(--accent);letter-spacing:.5px}
+.field{display:flex;flex-direction:column;gap:6px}
+.card select{font:inherit;color:var(--fg);background:var(--bg);border:1.5px solid var(--line);border-radius:16px;padding:13px 16px;width:100%}
+.card select:focus{outline:none;border-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);border-radius:20px;padding:8px 16px;background:var(--bg)}
+.chip[aria-checked="true"]{border-color:var(--accent);background:var(--bubble);font-weight:700}
+.row{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-top:6px}
+.ghost{border:1.5px solid var(--line);border-radius:18px;padding:13px 22px;font-family:var(--display);font-weight:700}
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px}
+.th{position:relative;border:2px solid var(--line);border-radius:18px;padding:10px;background:var(--surface);text-align:left;display:flex;flex-direction:column;gap:6px}
+.th[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--bubble)}
+.th .ok{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:13px;display:none;place-items:center}
+.th[aria-checked="true"] .ok{display:grid}
+.mini{border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:5px;height:66px}
+.mini i{display:block;height:11px;border-radius:7px}
+.th b{font-family:var(--display);font-size:14px}
+.th small{color:var(--muted);font-size:12px;margin-top:-6px}
+.dots{display:flex;gap:4px}.dots span{width:12px;height:12px;border-radius:50%;border:1px solid var(--line)}
+.basics{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;margin:0}
+.basics dt{color:var(--muted);font-size:14px}.basics dd{margin:0;font-weight:700;min-width:0;word-break:break-word}
+.foot .who small{display:block;font-weight:400;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+/* learned memory: chips under replies + the list in Memory */
+.memchips{display:flex;flex-direction:column;gap:4px;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}
+.memchip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.memchip::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.memchip.gone::before{background:var(--line)}
+.undo{font-size:13px;color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.mem{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:14px}
+.mem h2{font-family:var(--display);font-weight:800;font-size:19px;margin:0}
+.fact{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.fact .ft{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;word-break:break-word}
+.fact .meta{font-size:12px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cat{background:var(--bubble);border-radius:8px;padding:0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg)}
+.fact .fbtns{display:flex;gap:6px;flex-shrink:0}
+.fact input{font:inherit;color:var(--fg);background:var(--bg);border:1.5px solid var(--accent);border-radius:10px;padding:6px 10px;width:100%}
+.mem-empty{color:var(--muted);margin:6px 0}
+.mem-actions{margin-top:4px}
+.mem-actions .btns{display:flex;gap:8px;flex-wrap:wrap}
+#forgetQ{font-weight:700}
+
+/* ================= POLISH LAYER (v4): depth, light and finish. Look only: no layout, copy or behavior changes. =================
+   New tokens: --glow, --shadow-c, --ring, --m1a/--m1b (bot 1 jewel), --m2a/--m2b (bot 2 jewel). Each theme sets its own in applyTheme().
+   Derived on body so they follow whichever theme is active: --card-grad, --shadow-1, --shadow-2. */
+:root{--glow:rgba(255,120,71,.16);--shadow-c:rgba(90,50,20,.10);--ring:rgba(255,255,255,.55);
+  --m1a:#4fb3a9;--m1b:#1f7f84;--m2a:#7d6bdb;--m2b:#4a35b0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--glow:rgba(255,120,71,.09);--shadow-c:rgba(0,0,0,.5);--ring:rgba(255,255,255,.07)}}
+:root[data-theme="dark"]{--glow:rgba(255,120,71,.09);--shadow-c:rgba(0,0,0,.5);--ring:rgba(255,255,255,.07)}
+body{--card-grad:linear-gradient(180deg,color-mix(in srgb,var(--surface) 96%,#fff),var(--surface));
+  --shadow-1:0 1px 2px var(--shadow-c);--shadow-2:0 12px 32px -10px var(--shadow-c);
+  --lift:inset 0 1px 0 var(--ring),var(--shadow-1),var(--shadow-2);
+  background:radial-gradient(1000px 520px at 50% -160px,var(--glow),transparent 72%) fixed,var(--bg)}
+body,.side,.gate,.card,.msg .body,.user,.cbox,.team,.top,.feat,.gmsg{transition:background-color .2s ease,color .2s ease,border-color .2s ease}
+.gate{background:radial-gradient(1000px 520px at 50% -160px,var(--glow),transparent 72%),var(--bg)}
+.gate.land{background:radial-gradient(1100px 560px at 50% -120px,var(--glow),transparent 72%),var(--bg)}
+.ltop{background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px)}
+.side{border-right:1px solid var(--line)}
+.side{background:linear-gradient(180deg,color-mix(in srgb,var(--side) 97%,#fff),color-mix(in srgb,var(--side) 95%,var(--fg)))}
+
+/* cards & surfaces: gradient surface, inner highlight, layered shadow */
+.card,.feat,.help,.gnote,.th,.msg .body,.gmsg,.cite{background:var(--card-grad);border:1px solid var(--line);box-shadow:var(--lift)}
+.th,.feat,.gmsg{transition:transform .16s ease,box-shadow .16s ease,background-color .2s ease}
+.th:hover,.feat:hover,.gmsg:not(.folded):hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),0 18px 40px -12px var(--shadow-c)}
+.ficon{background:linear-gradient(140deg,var(--accent2),var(--accent));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 16px -6px var(--accent)}
+.ficon svg{stroke:#fff}
+
+/* jewel avatars: SIM SIM in the accent pair, bot 1 calm pair, bot 2 contrast pair; the user stays neutral ink */
+.avatar{background:linear-gradient(140deg,var(--accent2),var(--accent));color:#fff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -2px 4px rgba(0,0,0,.12),0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent),0 4px 14px color-mix(in srgb,var(--accent) 35%,transparent)}
+.avatar.b1{background:linear-gradient(140deg,var(--m1a),var(--m1b));color:#fff;border:0;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -2px 4px rgba(0,0,0,.12),0 0 0 1px color-mix(in srgb,var(--m1b) 35%,transparent),0 4px 14px color-mix(in srgb,var(--m1b) 35%,transparent)}
+.avatar.b2{background:linear-gradient(140deg,var(--m2a),var(--m2b));color:#fff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -2px 4px rgba(0,0,0,.12),0 0 0 1px color-mix(in srgb,var(--m2b) 35%,transparent),0 4px 14px color-mix(in srgb,var(--m2b) 35%,transparent)}
+.foot .me{background:var(--ink);color:var(--onink);box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1)}
+
+/* buttons */
+.big,.ghost,.newchat,.chip,.mini-btn,.pickbtn,.speak,.pill,.round{transition:transform .16s ease,box-shadow .16s ease,background-color .2s ease}
+.big{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 86%,#fff),var(--accent));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),var(--shadow-1),0 8px 20px -8px var(--accent)}
+.big:hover:not(:disabled),.ghost:hover,.newchat:hover,.chip:hover,.mini-btn:hover,.pickbtn:hover,.speak:hover,.round:hover{transform:translateY(-1px)}
+.big:hover:not(:disabled){box-shadow:inset 0 1px 0 rgba(255,255,255,.35),var(--shadow-1),0 12px 26px -8px var(--accent)}
+.big:active:not(:disabled),.ghost:active,.newchat:active,.chip:active,.mini-btn:active,.pickbtn:active,.round:active{transform:translateY(1px)}
+.big:disabled{filter:saturate(.6);opacity:.75}
+.ghost,.mini-btn:not(.on),.chip,.speak{background:var(--card-grad);box-shadow:var(--lift)}
+.mini-btn.on{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 86%,#fff),var(--accent));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),var(--shadow-1)}
+.chip[aria-checked="true"]{background:var(--bubble);box-shadow:inset 0 1px 0 var(--ring),0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.newchat{box-shadow:inset 0 1px 0 rgba(255,255,255,.14),var(--shadow-1),var(--shadow-2)}
+.mic{background:linear-gradient(140deg,var(--accent2),var(--accent));box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 6px 16px -6px var(--accent)}
+.send{box-shadow:inset 0 1px 0 rgba(255,255,255,.14),var(--shadow-1)}
+.card input,.card select,.rename input{box-shadow:inset 0 1px 2px var(--shadow-c)}
+
+/* type finish */
+.pitch h1,.card h1,.card h2,.strip h2{letter-spacing:-.02em;font-weight:800}
+.example,.mtxt small,.ghead small,.live .lbl,.cite .lbl,.steps,.side h4,.lbl{letter-spacing:.08em;text-transform:uppercase}
+.mtxt small,.ghead small{font-size:11px}
+
+/* chat */
+.user{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 9%,var(--surface)),color-mix(in srgb,var(--accent) 16%,var(--surface)));box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1)}
+.cite{border-left:3px solid var(--accent)}
+.cbox{background:var(--card-grad);box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),0 16px 40px -14px var(--shadow-c)}
+.cbox:focus-within{box-shadow:inset 0 1px 0 var(--ring),0 0 0 4px color-mix(in srgb,var(--accent) 20%,transparent),0 16px 40px -14px var(--shadow-c)}
+.top{background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(8px)}
+.team{background:var(--card-grad);box-shadow:inset 0 -1px 0 var(--line),var(--shadow-1)}
+.pill{box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1)}
+.pill .dot{background:radial-gradient(circle at 35% 35%,rgba(255,255,255,.85),var(--ok-dot) 55%);box-shadow:0 0 8px var(--ok-dot)}
+.pill.busy .dot{background:radial-gradient(circle at 35% 35%,rgba(255,255,255,.85),var(--accent) 55%);box-shadow:0 0 8px var(--accent)}
+.pill.awake{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 86%,#fff),var(--accent));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px -6px var(--accent)}
+.pill.awake .dot{background:#fff;animation:pulse 1.2s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.9)}100%{box-shadow:0 0 0 9px rgba(255,255,255,0)}}
+
+/* motion: messages fade and rise in; the pick badge pops */
+.msg,.user,.gmsg,.gnote{animation:rise .18s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.gmsg.picked .yourpick{animation:pop .2s cubic-bezier(.3,1.6,.6,1) both}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+.gmsg.picked{box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),0 0 0 4px color-mix(in srgb,var(--accent) 14%,transparent)}
+/* ================= end polish layer ================= */
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="gate land" id="gate">
+ <div class="landing" id="landing">
+  <header class="ltop"><div class="wrap ltop-in">
+    <div class="brand lbrand"><div class="avatar">S</div>SIM SIM</div>
+    <button class="ghost small" id="topSignIn">Sign in</button>
+  </div></header>
+
+  <section class="hero"><div class="wrap hero-in">
+   <div class="pitch">
+    <h1>Your personal assistant — that answers when you call.</h1>
+    <p>SIM SIM talks back, remembers your life, checks its facts, and follows through — like a real assistant, comfy as home.</p>
+   </div>
+   <div class="herocard" id="heroCard">
+  <div class="card" id="cardForm">
+    <h2>Welcome to SIM SIM</h2>
+    <label for="email">Email address</label>
+    <input id="email" type="email" placeholder="you@example.com" autocomplete="email">
+    <div class="err" id="err" aria-live="polite"></div>
+    <button class="big" id="sendLink">Email me my sign-in link</button>
+    <p class="small-note">No password, ever. We email you a link — tap it, you're in.</p>
+    <button class="link" id="skip">Skip for now (preview only)</button>
+    <span class="flag">Preview: sign-in isn't connected yet</span>
+  </div>
+  <div class="card" id="cardInbox" hidden>
+    <svg class="env" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3.5 7l8.5 6 8.5-6"/></svg>
+    <h2>Check your inbox</h2>
+    <p>Your sign-in link would go to <b id="sentTo"></b>.</p>
+    <p>The link works once. Tap it on this device.</p>
+    <button class="big" id="resend" disabled>Resend in 60s</button>
+    <button class="link" id="different">Use a different email</button>
+    <button class="link" id="skip2">Skip for now (preview only)</button>
+    <span class="flag">Preview: no email was sent</span>
+  </div>
+   </div>
+  </div></section>
+
+  <section class="features"><div class="wrap feat-grid">
+   <div class="feat"><span class="ficon"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+    <h3>Call it by name</h3><p>It listens for its name and answers out loud. Hands busy, across the room — just call.</p></div>
+   <div class="feat"><span class="ficon"><svg viewBox="0 0 24 24"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6zM6 3v18M10 8h5M10 12h5"/></svg></span>
+    <h3>It remembers your life</h3><p>Your notebook: your name, your people, your deadlines. It answers according to YOUR life, not the internet's guess.</p></div>
+   <div class="feat"><span class="ficon"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2zM4 5v16M9 9l2 2 4-4"/></svg></span>
+    <h3>Answers you can check</h3><p>For facts that matter, SIM SIM opens the book and shows its source. No source? It says so — it never bluffs.</p></div>
+   <div class="feat"><span class="ficon"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg></span>
+    <h3>It follows through</h3><p>Every task is tracked until YOU say it's done, and your morning briefing has it all waiting for you.</p></div>
+   <div class="feat"><span class="ficon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21a3 3 0 0 1 0-6h2"/></svg></span>
+    <h3>Make it yours</h3><p>Name your two helper bots, pick your colors. Your team, your vibe.</p></div>
+  </div></section>
+
+  <section class="strip"><div class="wrap">
+   <h2>SIM SIM can handle it All</h2>
+   <p>Study &amp; knowledge · Daily life · Work &amp; creating · Your connected apps · Voice &amp; memory — one assistant that does all of it together; you just talk.</p>
+  </div></section>
+
+  <section class="privacy"><div class="wrap">
+   <p>Your notebook is yours. See everything SIM SIM remembers, edit it, delete it — anytime. We ask little, we show you all of it.</p>
+  </div></section>
+
+  <footer class="lfoot"><div class="wrap lfoot-in">
+   <span>SIM SIM — your personal assistant.</span>
+   <button class="link" id="footSignIn">Sign in</button>
+  </div></footer>
+ </div>
+
+  <div class="card wide" id="cardP1" hidden>
+    <div class="steps">Step 1 of 2</div>
+    <h1>First, a little about you</h1>
+    <div class="field"><label for="callName">Name that your assistant can call you with</label>
+      <input id="callName" type="text" maxlength="40" autocomplete="given-name"><div class="err" id="eName"></div></div>
+    <div class="field"><label id="gLbl">Gender</label>
+      <div class="chips" id="gender" role="radiogroup" aria-labelledby="gLbl">
+        <button class="chip" role="radio" aria-checked="false" data-v="Female">Female</button>
+        <button class="chip" role="radio" aria-checked="false" data-v="Male">Male</button>
+        <button class="chip" role="radio" aria-checked="false" data-v="Other">Other</button>
+        <button class="chip" role="radio" aria-checked="false" data-v="Prefer not to say">Prefer not to say</button>
+      </div><div class="err" id="eGender"></div></div>
+    <div class="field"><label for="age">AGE</label>
+      <input id="age" type="number" min="5" max="120" step="1" inputmode="numeric"><div class="err" id="eAge"></div></div>
+    <div class="field"><label for="state">STATE</label>
+      <select id="state"><option value="">Choose your state</option></select><div class="err" id="eState"></div></div>
+    <div class="row"><span></span><button class="big" id="cont">Continue</button></div>
+  </div>
+
+  <div class="card wide" id="cardP2" hidden>
+    <div class="steps">Step 2 of 2</div>
+    <h1>Now make it yours</h1>
+    <div class="field"><label id="tLbl">What theme you like</label>
+      <div class="themes" id="themes" role="radiogroup" aria-labelledby="tLbl"></div></div>
+    <div class="row"><button class="ghost" id="back">Back</button><button class="big" id="finish">Finish</button></div>
+    <span class="flag">Preview: saved in this browser only</span>
+  </div>
+
+  <div class="card wide" id="cardBasics" hidden>
+    <h1>Your basics</h1>
+    <dl class="basics" id="basicsList"></dl>
+    <section class="mem" aria-labelledby="memH">
+      <h2 id="memH">What SIM SIM remembers</h2>
+      <div id="factList"></div>
+      <p class="mem-empty" id="memEmpty" hidden>Nothing yet — tell me something worth remembering.</p>
+      <div class="row mem-actions" id="forgetRow"><span class="flag">Preview: example facts, saved in this browser only</span><button class="ghost" id="forgetAll">Forget everything</button></div>
+      <div class="row mem-actions" id="forgetConfirm" hidden><span id="forgetQ"></span><span class="btns"><button class="ghost" id="forgetNo">Cancel</button><button class="big" id="forgetYes">Yes, forget all</button></span></div>
+    </section>
+    <p class="quiet">Listening works only while SIM SIM is open in Chrome. Chrome sends what the mic hears to Google to turn it into text. SIM SIM itself only keeps what you say after its name.</p>
+    <div class="row"><button class="ghost" id="closeBasics">Close</button><button class="big" id="editBasics">Edit my basics</button></div>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="side" id="side">
+    <div class="brand"><div class="avatar">S</div><span class="aname">SIM SIM</span></div>
+    <button class="newchat" id="newchat"><span aria-hidden="true">+</span> New chat</button>
+    <nav class="nav">
+      <button class="on" data-f="Chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</button>
+      <button data-f="Group Chat"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><circle cx="5" cy="10" r="2.2"/><circle cx="19" cy="10" r="2.2"/><path d="M7 20a5 5 0 0 1 10 0M1.5 19a3.5 3.5 0 0 1 5-3.2M22.5 19a3.5 3.5 0 0 0-5-3.2"/></svg>Group Chat</button>
+      <button data-f="Morning briefing"><svg viewBox="0 0 24 24"><path d="M3 18h18M7 18a5 5 0 0 1 10 0M12 4v3M5 9l2 2M19 9l-2 2"/></svg>Morning briefing</button>
+      <button data-f="Open loops"><svg viewBox="0 0 24 24"><path d="M17 3l3 3-3 3M20 6H8a4 4 0 0 0-4 4v1M7 21l-3-3 3-3M4 18h12a4 4 0 0 0 4-4v-1"/></svg>Open loops <span class="badge" id="loops">1</span></button>
+      <button data-f="Memory"><svg viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 6 1V5a3 3 0 0 0-3-1zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-6 1"/></svg>Memory</button>
+    </nav>
+    <div class="note" id="note" aria-live="polite"></div>
+    <h4>Today</h4>
+    <div class="hist">License deadline question</div>
+    <div class="foot"><div class="me">H</div><span class="who">Hassan</span><button class="in" id="openGate">Sign in</button></div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <div class="t"><button class="menu" id="menu" aria-label="Open menu">☰</button><span class="aname">SIM SIM</span><span class="vsub" id="viewSub"></span></div>
+      <div class="controls">
+        <button class="pill" id="pill"><span class="dot"></span><span id="pilltxt">Ready</span></button>
+        <button class="speak" id="listen" aria-pressed="true">Listening: <b id="listentxt">ON</b></button>
+        <button class="speak" id="speak" aria-pressed="true">Speak: <b id="speaktxt">ON</b></button>
+      </div>
+    </header>
+    <div class="help" id="help" hidden>
+      <b>To let the mic work:</b> click the lock icon at the left of Chrome's address bar, set <b>Microphone</b> to <b>Allow</b>, then reload the page.
+      <span class="quiet">This preview page can never use the mic. Open SIM SIM Prototype.html from your SIM SIM folder in Chrome instead.</span>
+    </div>
+    <div class="live" id="live" hidden><span class="lbl">Hearing</span><span id="livetxt"></span></div>
+
+    <div class="team" id="team" hidden>
+      <div class="team-row">
+        <div class="member"><span class="avatar">S</span><span class="mtxt"><b>SIM SIM</b><small>your main AI</small></span></div>
+        <div class="member"><span class="avatar b1" data-av="0">R</span><span class="mtxt"><button class="bname" data-i="0" title="Rename this bot"></button><small>facts &amp; sources</small></span></div>
+        <div class="member"><span class="avatar b2" data-av="1">C</span><span class="mtxt"><button class="bname" data-i="1" title="Rename this bot"></button><small>another angle</small></span></div>
+      </div>
+      <form class="rename" id="renameBox" hidden>
+        <label for="renameIn" id="renameLbl">Rename</label>
+        <input id="renameIn" type="text" maxlength="20" autocomplete="off">
+        <button type="submit" class="mini-btn on">Save</button><button type="button" class="mini-btn" id="renameCancel">Cancel</button>
+        <span class="err" id="renameErr"></span>
+      </form>
+      <div class="tally" id="tally"></div>
+    </div>
+
+    <section class="thread" id="thread">
+      <div class="col" id="col">
+        <div class="example">Example conversation</div>
+        <div class="msg"><div class="avatar">S</div><div class="body"><div class="name">SIM SIM</div>I'm here, Hassan.</div></div>
+        <div class="user">SIM SIM, how many days do I have to switch my license to Tennessee?</div>
+        <div class="msg"><div class="avatar">S</div><div class="body"><div class="name">SIM SIM</div>
+          You have 30 days after you establish residency. If that was October 19, your deadline is November 18.
+          <div class="cite"><div class="lbl">Source</div>
+            <q>…must obtain a Tennessee Driver License no later than thirty (30) days after establishing residency.</q>
+            <a href="https://www.tn.gov/safety/driver-services/classd/dlnew" target="_blank" rel="noopener">TN Department of Safety · New Residents</a>
+          </div></div></div>
+        <div class="msg"><div class="avatar">S</div><div class="body"><div class="name">SIM SIM</div>I added it to your open loops. I'll remind you before it passes.</div></div>
+        <div class="user">My sister Ayesha's birthday is March 3.</div>
+        <div class="msg"><div class="avatar">S</div><div class="body"><div class="name">SIM SIM</div>That's a nice one to keep. Want a reminder a few days before?
+          <div class="memchips">
+            <span class="memchip" data-fid="ex1"><span class="mt">Remembered: Your sister's name is Ayesha</span><button type="button" class="undo">Undo</button></span>
+            <span class="memchip" data-fid="ex2"><span class="mt">Remembered: Ayesha's birthday is March 3</span><button type="button" class="undo">Undo</button></span>
+          </div></div></div>
+      </div>
+    </section>
+
+    <section class="thread" id="gthread" hidden>
+      <div class="col" id="gcol"></div>
+    </section>
+
+    <footer class="composer">
+      <form class="cbox" id="form">
+        <input id="input" type="text" placeholder="Talk or type to SIM SIM…" autocomplete="off" aria-label="Message">
+        <button type="button" class="round mic" id="mic" aria-label="Talk"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <button type="submit" class="round send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </form>
+      <div class="cap" id="cap">Press the mic or type. Saying "SIM SIM" comes in a later step.</div>
+    </footer>
+  </main>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const col=$('col'),thread=$('thread'),input=$('input');
+let speakOn=true, aName='SIM SIM', profile=null, email='';
+try{profile=JSON.parse(localStorage.getItem('simsim-profile'))}catch(e){}
+try{speakOn=localStorage.getItem('simsim-speak')!=='off'}catch(e){}
+function paintSpeak(){$('speaktxt').textContent=speakOn?'ON':'OFF';$('speak').setAttribute('aria-pressed',speakOn)}
+paintSpeak();
+$('speak').onclick=()=>{speakOn=!speakOn;paintSpeak();try{localStorage.setItem('simsim-speak',speakOn?'on':'off')}catch(e){}
+  if(!speakOn&&window.speechSynthesis)speechSynthesis.cancel()};
+
+function status(t,cls){$('pilltxt').textContent=t;const p=$('pill');
+  ['busy','awake','warn'].forEach(c=>p.classList.toggle(c,c===cls))}
+function scroll(){thread.scrollTop=thread.scrollHeight}
+function addUser(t){const d=document.createElement('div');d.className='user';d.textContent=t;col.appendChild(d);scroll()}
+function addSim(html){const d=document.createElement('div');d.className='msg';
+  d.innerHTML='<div class="avatar"></div><div class="body"><div class="name"></div><div class="txt"></div></div>';
+  d.querySelector('.avatar').textContent=aName.trim().charAt(0).toUpperCase();d.querySelector('.name').textContent=aName;
+  const t=d.querySelector('.txt');if(html===null)t.innerHTML='<span class="typing"><span></span><span></span><span></span></span>';else t.textContent=html;
+  col.appendChild(d);scroll();return t}
+function callName(){return profile?profile.callName:'Hassan'}
+// Speak a reply. Listening pauses while SIM SIM talks, so it never wakes to its own voice.
+function finishTurn(){speaking=false;cooldown=Date.now()+1500;mode='idle';idle();resumeRec()}
+function say(text){
+  const done=finishTurn;
+  if(!speakOn||!window.speechSynthesis){done();return}
+  pauseRec();speaking=true;status('Speaking','busy');
+  const u=new SpeechSynthesisUtterance(text);u.onend=u.onerror=done;speechSynthesis.speak(u)}
+
+// Placeholder brain: no AI is connected yet, so SIM SIM gives one fixed reply.
+const STUB="Meta brain not connected yet.";
+function sendText(t){if(view==='group'){sendGroup(t);return}   // typed, dictated or woken by name: in Group Chat it goes to the team
+  addUser(t);mode='busy';status('Thinking','busy');const slot=addSim(null);
+  setTimeout(()=>{slot.textContent=STUB;scroll();say(STUB)},900)}
+$('form').onsubmit=e=>{e.preventDefault();const t=input.value.trim();if(!t)return;
+  if(mode==='awake')endAwake();input.value='';sendText(t)};
+
+$('newchat').onclick=()=>{if(view==='group'){lockTurn();resetGroup()}else{col.innerHTML='';addSim("I'm here, "+callName()+".")}input.focus()};
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{
+  $('side').classList.remove('open');
+  if(b.dataset.f==='Memory'){$('note').textContent='';if(profile)showBasics();else startSetup(false);return}
+  if(b.dataset.f==='Chat'||b.dataset.f==='Group Chat')showView(b.dataset.f==='Chat'?'chat':'group');
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('on',x===b));
+  $('note').textContent=(b.dataset.f==='Chat'||b.dataset.f==='Group Chat')?'':b.dataset.f+' comes in a later step.'});
+
+// ---- Group Chat: SIM SIM + the user's two helper bots each answer; the user picks one ----
+// Preview: no brain is connected, so each member gives the placeholder reply.
+// In the real app, all three come from the same Meta brain with three different role instructions.
+let view='chat',turn=null,isExample=false;
+const gcol=$('gcol'),gthread=$('gthread');
+function botNames(){return (profile&&profile.botNames)||['Researcher','Challenger']}
+function taste(){return (profile&&profile.taste)||{simsim:0,bot1:0,bot2:0}}
+function saveProfile(){try{if(profile)localStorage.setItem('simsim-profile',JSON.stringify(profile))}catch(e){}}
+const MEMBERS=[{key:'simsim',role:'your main AI',cls:''},{key:'bot1',role:'facts & sources',cls:'b1'},{key:'bot2',role:'another angle',cls:'b2'}];
+function memberName(i){return i===0?'SIM SIM':botNames()[i-1]}
+function paintTeam(){const n=botNames(),t=taste();
+  document.querySelectorAll('.bname').forEach(b=>b.textContent=n[+b.dataset.i]);
+  document.querySelectorAll('[data-av]').forEach(a=>a.textContent=n[+a.dataset.av].charAt(0).toUpperCase());
+  document.querySelectorAll('[data-nm]').forEach(e=>e.textContent=memberName(+e.dataset.nm));
+  document.querySelectorAll('.fold').forEach(f=>f.textContent='Answer from '+memberName(+f.dataset.m)+' · not picked · tap to view');
+  $('tally').textContent='Your picks so far: SIM SIM '+t.simsim+' · '+n[0]+' '+t.bot1+' · '+n[1]+' '+t.bot2}
+function showView(v){view=v;const g=v==='group';
+  $('thread').hidden=g;$('gthread').hidden=!g;$('team').hidden=!g;$('viewSub').textContent=g?'Group Chat':'';
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('on',x.dataset.f===(g?'Group Chat':'Chat')));
+  input.placeholder=g?'Ask your team…':'Talk or type to SIM SIM…';if(g){paintTeam();if(!gcol.children.length)resetGroup()}}
+
+function resetGroup(){gcol.innerHTML='';turn=null;
+  const n=document.createElement('div');n.className='gnote';
+  n.textContent="Your picks teach your team your taste. They're saved privately, just yours, never shared.";gcol.appendChild(n);
+  const f=document.createElement('span');f.className='flag';f.style.alignSelf='center';f.textContent='Preview: saved in this browser only';gcol.appendChild(f);
+  buildExample()}
+function gscroll(){gthread.scrollTop=gthread.scrollHeight}
+function makeAnswer(i,el){const m=MEMBERS[i],d=document.createElement('div');d.className='gmsg';d.dataset.m=i;
+  d.innerHTML='<div class="ghead"><span class="avatar '+m.cls+'"></span><b data-nm="'+i+'"></b><small></small><span class="yourpick">Your pick</span></div>'+
+    '<div class="gbody"></div><button class="pickbtn" type="button">Pick this one</button><button class="fold" type="button" data-m="'+i+'"></button>';
+  const av=d.querySelector('.avatar');if(i===0)av.textContent='S';else av.dataset.av=i-1;
+  d.querySelector('small').textContent=m.role;d.querySelector('.pickbtn').onclick=()=>pick(d);
+  d.querySelector('.fold').onclick=()=>d.classList.remove('folded');
+  const body=d.querySelector('.gbody');if(el)body.appendChild(el);else body.innerHTML='<span class="typing"><span></span><span></span><span></span></span>';
+  return d}
+function newTurn(q,example){
+  const box=document.createElement('div');box.className='gturn';box.dataset.q=q;if(example)box.dataset.example='1';
+  if(example){const e=document.createElement('div');e.className='example';e.textContent='Example group question';box.appendChild(e)}
+  const u=document.createElement('div');u.className='user';u.textContent=q;box.appendChild(u);gcol.appendChild(box);return box}
+function buildExample(){const box=newTurn('What do I need to switch my license to Tennessee?',true);
+  const t0=document.createElement('div');t0.textContent="Here's the plan: gather your documents, book a visit at a full-service Driver Services Center, and bring your current license. Want me to track it as an open loop until it's done?";
+  const t1=document.createElement('div');t1.innerHTML='You surrender your out-of-state license, take a vision screening at a full-service center, and must do it within 30 days of establishing residency.'+
+    '<div class="cite"><div class="lbl">Source</div><a href="https://www.tn.gov/safety/driver-services/classd/dlnew" target="_blank" rel="noopener">TN Department of Safety · New Residents</a></div>';
+  const t2=document.createElement('div');t2.textContent="Another angle: get your documents pre-approved online first, so one visit is enough. Risk: if your old license is lost, you'll need a recent driving record from your old state, and that takes time.";
+  [t0,t1,t2].forEach((t,i)=>box.appendChild(makeAnswer(i,t)));turn=box;paintTeam()}
+
+function pick(d){const box=d.closest('.gturn');if(box.classList.contains('locked'))return;
+  box.querySelectorAll('.gmsg').forEach(g=>{const on=g===d;g.classList.toggle('picked',on);g.classList.toggle('folded',!on)});
+  box.dataset.pick=d.dataset.m;
+  if(speakOn&&window.speechSynthesis){speechSynthesis.cancel();say(d.querySelector('.gbody').innerText.split('\nSource')[0])}}  // only the picked answer is ever spoken
+// When the next question is asked, the last pick locks and is saved to the taste log.
+function lockTurn(){if(!turn||turn.classList.contains('locked'))return;turn.classList.add('locked');
+  const p=turn.dataset.pick;if(p===undefined||turn.dataset.example)return;
+  const answers=[...turn.querySelectorAll('.gmsg')].map(g=>({member:memberName(+g.dataset.m),text:g.querySelector('.gbody').innerText}));
+  const entry={time:new Date().toISOString(),question:turn.dataset.q,answers,picked:memberName(+p),topic:turn.dataset.q.split(/\s+/).slice(0,5).join(' ')};
+  try{const log=JSON.parse(localStorage.getItem('simsim-group-log')||'[]');log.push(entry);localStorage.setItem('simsim-group-log',JSON.stringify(log))}catch(e){}
+  if(profile){profile.taste=taste();profile.taste[MEMBERS[+p].key]++;saveProfile()}paintTeam()}
+function sendGroup(q){lockTurn();mode='busy';status('Thinking','busy');
+  const box=newTurn(q,false),slots=[0,1,2].map(i=>{const d=makeAnswer(i,null);d.querySelector('.pickbtn').hidden=true;box.appendChild(d);return d});
+  turn=box;paintTeam();gscroll();let left=3;
+  slots.forEach((d,i)=>setTimeout(()=>{d.querySelector('.gbody').textContent=STUB;d.querySelector('.pickbtn').hidden=false;gscroll();
+    if(--left===0)finishTurn()},500+Math.random()*900))}   // answers can land in any order; nothing is spoken before a pick
+
+// rename a helper bot (SIM SIM's name is fixed and has no rename)
+let renaming=0;
+document.querySelectorAll('.bname').forEach(b=>b.onclick=()=>{renaming=+b.dataset.i;$('renameLbl').textContent='Rename '+botNames()[renaming];
+  $('renameIn').value=botNames()[renaming];$('renameErr').textContent='';$('renameBox').hidden=false;$('renameIn').focus();$('renameIn').select()});
+$('renameCancel').onclick=()=>{$('renameBox').hidden=true};
+$('renameBox').onsubmit=e=>{e.preventDefault();const v=$('renameIn').value.trim().replace(/\s+/g,' ');
+  if(!/^[A-Za-z0-9 ]{1,20}$/.test(v)){$('renameErr').textContent='Use 1 to 20 letters, numbers, or spaces.';return}
+  if(norm(v)==='sim sim'||norm(v)==='simsim'){$('renameErr').textContent='That name belongs to SIM SIM. Pick another.';return}
+  const n=botNames().slice();n[renaming]=v;if(profile){profile.botNames=n;saveProfile()}$('renameBox').hidden=true;paintTeam()};
+$('menu').onclick=()=>$('side').classList.toggle('open');
+
+// Sign-in screen: design only. Nothing is sent; "Skip for now" opens the app.
+let timer=null;
+const CARDS=['cardForm','cardInbox','cardP1','cardP2','cardBasics'];
+function show(id){const g=$('gate'),land=id==='cardForm'||id==='cardInbox';
+  g.hidden=!id;g.classList.toggle('land',land);$('landing').hidden=!land;
+  CARDS.forEach(c=>$(c).hidden=c!==id);if(!land||id==='cardForm')g.scrollTop=0;
+  if(id){pauseRec();if(mode==='awake')endAwake()}else startRec()}  // listening only inside the app, never on sign-in or setup
+function skip(){clearInterval(timer);if(profile){show(null);input.focus()}else startSetup(false)}
+$('skip').onclick=skip;$('skip2').onclick=skip;
+$('openGate').onclick=()=>show('cardForm');
+function toCard(){const smooth=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+  $('heroCard').scrollIntoView({behavior:smooth?'smooth':'auto',block:'center'});
+  setTimeout(()=>{const e=$('cardForm').hidden?null:$('email');if(e)e.focus({preventScroll:true})},smooth?500:0)}
+$('topSignIn').onclick=toCard;$('footSignIn').onclick=toCard;
+$('sendLink').onclick=()=>{
+  const v=$('email').value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)){$('err').textContent='That email looks incomplete. Check it and try again.';return}
+  email=v;$('err').textContent='';$('sentTo').textContent=v;show('cardInbox');
+  let n=60;const b=$('resend');b.disabled=true;b.textContent='Resend in '+n+'s';clearInterval(timer);
+  timer=setInterval(()=>{n--;if(n<=0){clearInterval(timer);b.disabled=false;b.textContent='Resend link'}else b.textContent='Resend in '+n+'s'},1000)};
+$('resend').onclick=()=>$('sendLink').click();
+$('different').onclick=()=>{clearInterval(timer);$('email').value='';show('cardForm');$('email').focus()};
+
+// ---- First-time setup ----
+const THEMES=[
+ {id:'orange',name:'SIM SIM Orange',vibe:'Warm',v:{bg:'#fffaf5',side:'#fbf1e6',surface:'#ffffff',line:'#efe2d3',fg:'#2a211b',muted:'#8c7a6b',bubble:'#f6ebdf',accent:'#ff7847',accent2:'#ffb03a'}},
+ {id:'ocean',name:'Ocean',vibe:'Calm',v:{bg:'#f5f9fc',side:'#e8f1f8',surface:'#ffffff',line:'#d6e4ef',fg:'#16232e',muted:'#5f7686',bubble:'#e1edf7',accent:'#2b7bbf',accent2:'#5ab0e8'}},
+ {id:'blossom',name:'Blossom',vibe:'Soft',v:{bg:'#fff7f9',side:'#fcebf0',surface:'#ffffff',line:'#f3d9e1',fg:'#2e1c22',muted:'#8f6e78',bubble:'#f9e1e8',accent:'#d9577e',accent2:'#f29bb3'}},
+ {id:'forest',name:'Forest',vibe:'Fresh',v:{bg:'#f6faf5',side:'#e9f2e6',surface:'#ffffff',line:'#d6e5d1',fg:'#1b261a',muted:'#66785f',bubble:'#e2eedd',accent:'#3f8a4a',accent2:'#8cc36a'}},
+ {id:'sunset',name:'Sunset',vibe:'Bold',v:{bg:'#fff6f2',side:'#fde7df',surface:'#ffffff',line:'#f5d3c6',fg:'#2b1a17',muted:'#8f6a60',bubble:'#fbded4',accent:'#e8505b',accent2:'#ff9a3c'}},
+ {id:'midnight',name:'Midnight',vibe:'Focused',dark:true,v:{bg:'#141a24',side:'#1a2230',surface:'#202a3a',line:'#2c3850',fg:'#e7ecf5',muted:'#93a1ba',bubble:'#263247',accent:'#4f8df5',accent2:'#8ab8ff'}},
+ {id:'lavender',name:'Lavender',vibe:'Gentle',v:{bg:'#faf8fd',side:'#f0ebf8',surface:'#ffffff',line:'#e2d9f0',fg:'#231d2e',muted:'#7a6f8c',bubble:'#ebe3f6',accent:'#8a63c9',accent2:'#b89ae6'}},
+ {id:'sand',name:'Sand',vibe:'Easy',v:{bg:'#fbf8f2',side:'#f3ede1',surface:'#fffdf9',line:'#e6dccb',fg:'#2b2620',muted:'#857a69',bubble:'#efe7d8',accent:'#b0874f',accent2:'#d6b27a'}}
+];
+const STATES=['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming'];
+STATES.forEach(s=>{const o=document.createElement('option');o.value=o.textContent=s;$('state').appendChild(o)});
+
+// Polish: each theme's team jewels. Bot 1 gets a calm pair, bot 2 a contrast pair, chosen to sit well beside that theme's accent.
+const POLISH={
+ orange:{m1a:'#4fb3a9',m1b:'#1f7f84',m2a:'#7d6bdb',m2b:'#4a35b0'},
+ ocean:{m1a:'#5cc3a0',m1b:'#2b8a6c',m2a:'#9a7ce0',m2b:'#5f3fb8'},
+ blossom:{m1a:'#7fb7e0',m1b:'#3f7fb5',m2a:'#8a6fd6',m2b:'#5a3fb0'},
+ forest:{m1a:'#6fb6d9',m1b:'#2f7fae',m2a:'#e39a4f',m2b:'#b8692a'},
+ sunset:{m1a:'#5fb3c9',m1b:'#2a7f9a',m2a:'#7a68d8',m2b:'#4b3aaf'},
+ midnight:{m1a:'#4fd1b5',m1b:'#1f8f7a',m2a:'#f08ab5',m2b:'#c0507f'},
+ lavender:{m1a:'#6fc1b6',m1b:'#2f8a7f',m2a:'#f0a05a',m2b:'#c36f22'},
+ sand:{m1a:'#6aa8a0',m1b:'#3a7a72',m2a:'#8a73c9',m2b:'#5a44a0'}};
+function applyTheme(id){
+  const t=THEMES.find(x=>x.id===id)||THEMES[0],s=document.body.style;
+  const v=Object.assign({},t.v,{ink:t.v.fg,onink:t.v.bg},t.dark
+    ?{'ok-bg':'#1d3326','ok-fg':'#9fe0b0','ok-dot':'#43c76c','think-bg':'#33291a','think-fg':'#ffcf8a'}
+    :{'ok-bg':'#e9f6ea','ok-fg':'#1d6b34','ok-dot':'#2fb45a','think-bg':'#fff1dc','think-fg':'#8a4b00'});
+  Object.assign(v,POLISH[t.id]||POLISH.orange,{glow:'color-mix(in srgb,'+t.v.accent+' '+(t.dark?10:16)+'%,transparent)',
+    'shadow-c':t.dark?'rgba(0,0,0,.5)':'color-mix(in srgb,'+t.v.fg+' 12%,transparent)',ring:t.dark?'rgba(255,255,255,.07)':'rgba(255,255,255,.55)'});
+  for(const k in v)s.setProperty('--'+k,v[k]);s.colorScheme=t.dark?'dark':'light';
+  paintDoodle(v.muted,!!t.dark)}
+
+// SIM SIM's own doodle set: mic, open book, star, moon, coffee, check, envelope, sun,
+// key, magic lamp, arched door ("Khul ja SIM SIM"), calendar, heart, music note, sparkle, chat bubble.
+const ICONS=[
+ '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/>',
+ '<path d="M3 5c3-1 6-1 9 1 3-2 6-2 9-1v13c-3-1-6-1-9 1-3-2-6-2-9-1zM12 6v13"/>',
+ '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>',
+ '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+ '<path d="M4 9h12v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM16 10h1.5a2 2 0 0 1 0 4H16M8 3c-1 1 1 2 0 3M12 3c-1 1 1 2 0 3"/>',
+ '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+ '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>',
+ '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+ '<circle cx="7" cy="12" r="4"/><path d="M11 12h10M18 12v3M21 12v2"/>',
+ '<path d="M3 14h11c2.5 0 4.5-2 5.5-4l2-1M6 14a5 3.5 0 0 0 9 0M9.5 10.5V9M8 18h7"/>',
+ '<path d="M6 21V10a6 6 0 0 1 12 0v11zM14.5 15v1M3 21h18"/>',
+ '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+ '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
+ '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+ '<path d="M12 3c.6 4 2 5.4 6 6-4 .6-5.4 2-6 6-.6-4-2-5.4-6-6 4-.6 5.4-2 6-6z"/>',
+ '<path d="M4 5h16v11H9l-5 4z"/>'
+];
+const SPOTS=[[8,10,-12,1],[70,4,8,.9],[135,14,-6,1.05],[188,40,15,.85],[30,62,20,.9],[96,58,-10,1],[160,78,6,.95],
+ [6,120,-4,1.05],[64,112,12,.9],[124,126,-18,.95],[186,128,4,.9],[34,172,-8,.95],[100,176,16,1],[160,180,-12,.9],[205,186,10,.7],[200,-6,-20,.7]];
+function paintDoodle(color,dark){
+  const g=SPOTS.map(([x,y,r,s],i)=>'<g transform="translate('+x+' '+y+') rotate('+r+' 12 12) scale('+s+')">'+ICONS[i]+'</g>').join('');
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220"><g fill="none" stroke="'+color+'" stroke-opacity="'+(dark?.3:.22)+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'+g+'</g></svg>';
+  document.body.style.setProperty('--doodle','url("data:image/svg+xml,'+encodeURIComponent(svg)+'")')}
+// before any theme is chosen, draw the doodles in the page's own soft text color
+paintDoodle(getComputedStyle(document.body).getPropertyValue('--muted').trim()||'#8c7a6b',matchMedia('(prefers-color-scheme: dark)').matches);
+
+let pickedTheme='orange',pickedGender='',editing=false;
+THEMES.forEach(t=>{const b=document.createElement('button');b.className='th';b.setAttribute('role','radio');b.dataset.id=t.id;
+  const c=t.v;b.innerHTML='<span class="ok" aria-hidden="true">✓</span>'+
+   '<span class="mini" style="background:'+c.bg+'"><i style="width:60%;align-self:flex-end;background:'+c.bubble+'"></i><i style="width:75%;background:'+c.side+'"></i><i style="width:35%;background:'+c.accent+'"></i></span>'+
+   '<b>'+t.name+'</b><small>'+t.vibe+'</small><span class="dots"><span style="background:'+c.accent+'"></span><span style="background:'+c.bubble+'"></span><span style="background:'+c.bg+'"></span></span>';
+  b.onclick=()=>pickTheme(t.id);$('themes').appendChild(b)});
+function pickTheme(id){pickedTheme=id;document.querySelectorAll('.th').forEach(b=>b.setAttribute('aria-checked',b.dataset.id===id));applyTheme(id)}
+function pickGender(v){pickedGender=v;document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-checked',c.dataset.v===v))}
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>pickGender(c.dataset.v));
+
+function startSetup(edit){editing=edit;const p=edit&&profile;
+  $('callName').value=p?p.callName:'';pickGender(p?p.gender:'');$('age').value=p?p.age:'';$('state').value=p?p.state:'';
+  pickTheme(p?p.themeId:'orange');
+  ['eName','eGender','eAge','eState'].forEach(e=>$(e).textContent='');show('cardP1');$('callName').focus()}
+
+$('cont').onclick=()=>{let ok=true;const n=$('callName').value.trim(),a=$('age').value.trim();
+  $('eName').textContent=n?'':'Tell me what to call you.';if(!n)ok=false;
+  $('eGender').textContent=pickedGender?'':'Pick one. "Prefer not to say" is fine.';if(!pickedGender)ok=false;
+  const ageOk=/^\d+$/.test(a)&&+a>=5&&+a<=120;$('eAge').textContent=ageOk?'':'Enter your age as a whole number, like 27.';if(!ageOk)ok=false;
+  $('eState').textContent=$('state').value?'':'Choose your state.';if(!$('state').value)ok=false;
+  if(ok)show('cardP2')};
+$('back').onclick=()=>show('cardP1');
+
+function applyProfile(p){
+  aName='SIM SIM';applyTheme(p.themeId);   // SIM SIM's name is fixed
+  document.querySelectorAll('.aname').forEach(e=>e.textContent=aName);
+  document.querySelectorAll('.avatar:not(.b1):not(.b2)').forEach(e=>e.textContent=aName.charAt(0).toUpperCase());
+  document.querySelectorAll('#col .name').forEach(e=>e.textContent=aName);
+  $('input').placeholder='Talk or type to '+aName+'…';paintCap();if(mode==='idle')idle();
+  const w=$('openGate').previousElementSibling;w.textContent=p.callName;
+  if(p.email){const s=document.createElement('small');s.textContent=p.email;w.appendChild(s)}
+  w.previousElementSibling.textContent=p.callName.charAt(0).toUpperCase()}
+
+$('finish').onclick=()=>{const n='SIM SIM';
+  const old=profile;
+  profile={callName:$('callName').value.trim(),gender:pickedGender,age:+$('age').value,state:$('state').value,
+    assistantName:n,themeId:pickedTheme,email:email||(old&&old.email)||'',createdAt:(old&&old.createdAt)||new Date().toISOString(),
+    botNames:(old&&old.botNames)||['Researcher','Challenger'],taste:(old&&old.taste)||{simsim:0,bot1:0,bot2:0}};
+  try{localStorage.setItem('simsim-profile',JSON.stringify(profile))}catch(e){}
+  applyProfile(profile);show(null);
+  if(!editing){addSim('Hi '+profile.callName+", I'm "+n+'. Say my name anytime, or type below.')}};
+
+function showBasics(){const p=profile,rows=[['Call me',p.callName],['Gender',p.gender],['Age',p.age],['State',p.state],
+  ['Helper bot 1',botNames()[0]+' (facts & sources)'],['Helper bot 2',botNames()[1]+' (another angle)'],['Theme',(THEMES.find(t=>t.id===p.themeId)||THEMES[0]).name]];
+  $('basicsList').innerHTML='';rows.forEach(([k,v])=>{const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=k;dd.textContent=v;$('basicsList').append(dt,dd)});
+  paintFacts();$('forgetConfirm').hidden=true;$('forgetRow').hidden=false;show('cardBasics')}
+
+// ---- Learned memory (preview) ----
+// No brain is connected, so nothing is learned for real. The example conversation's chips and these
+// example facts show the look; Undo, Edit, Delete and Forget everything work on them.
+const EXAMPLE_FACTS=[
+ {id:'ex1',text:"Your sister's name is Ayesha",category:'people'},
+ {id:'ex2',text:"Ayesha's birthday is March 3",category:'dates'},
+ {id:'ex3',text:'You moved to Tennessee on October 19',category:'places'}];
+let facts;
+try{facts=JSON.parse(localStorage.getItem('simsim-facts'))}catch(e){}
+if(!Array.isArray(facts)){const now=new Date().toISOString();facts=EXAMPLE_FACTS.map(f=>Object.assign({source:'chat',createdAt:now,updatedAt:now,example:true},f))}
+function saveFacts(){try{localStorage.setItem('simsim-facts',JSON.stringify(facts))}catch(e){}}
+function fmtDate(iso){try{return new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric'})}catch(e){return ''}}
+function removeFact(id){facts=facts.filter(f=>f.id!==id);saveFacts();paintChips();if(!$('cardBasics').hidden)paintFacts()}
+function paintChips(){document.querySelectorAll('.memchip').forEach(c=>{const alive=facts.some(f=>f.id===c.dataset.fid);
+  c.classList.toggle('gone',!alive);const u=c.querySelector('.undo');
+  if(!alive){c.querySelector('.mt').textContent='Forgotten.';if(u)u.remove()}})}
+document.querySelectorAll('.memchip .undo').forEach(u=>u.onclick=()=>removeFact(u.closest('.memchip').dataset.fid));
+function paintFacts(){const list=$('factList');list.innerHTML='';
+  $('memEmpty').hidden=facts.length>0;$('forgetAll').hidden=facts.length===0;
+  facts.slice().sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)).forEach(f=>{
+    const row=document.createElement('div');row.className='fact';
+    row.innerHTML='<div class="ft"><span class="txt"></span><span class="meta"><span class="cat"></span><span class="when"></span></span></div>'+
+      '<div class="fbtns"><button type="button" class="mini-btn ed">Edit</button><button type="button" class="mini-btn del">Delete</button></div>';
+    row.querySelector('.txt').textContent=f.text;row.querySelector('.cat').textContent=f.category;
+    row.querySelector('.when').textContent=(f.updatedAt!==f.createdAt?'Updated ':'Learned ')+fmtDate(f.updatedAt)+(f.example?' · example':'');
+    row.querySelector('.del').onclick=()=>removeFact(f.id);
+    row.querySelector('.ed').onclick=()=>{const ft=row.querySelector('.ft'),inp=document.createElement('input');inp.value=f.text;inp.maxLength=160;
+      inp.setAttribute('aria-label','Edit this memory');ft.querySelector('.txt').replaceWith(inp);inp.focus();
+      const b=row.querySelector('.fbtns');b.innerHTML='<button type="button" class="mini-btn on sv">Save</button><button type="button" class="mini-btn cn">Cancel</button>';
+      const save=()=>{const v=inp.value.trim();if(!v)return;f.text=v;f.updatedAt=new Date().toISOString();saveFacts();paintFacts()};
+      b.querySelector('.sv').onclick=save;b.querySelector('.cn').onclick=paintFacts;
+      inp.onkeydown=e=>{if(e.key==='Enter')save();if(e.key==='Escape')paintFacts()}};
+    list.appendChild(row)})}
+$('forgetAll').onclick=()=>{$('forgetQ').textContent='Forget all '+facts.length+' facts? Your basics stay.';$('forgetRow').hidden=true;$('forgetConfirm').hidden=false};
+$('forgetNo').onclick=()=>{$('forgetConfirm').hidden=true;$('forgetRow').hidden=false};
+$('forgetYes').onclick=()=>{facts=[];saveFacts();paintChips();paintFacts();$('forgetConfirm').hidden=true;$('forgetRow').hidden=false};
+paintChips();
+$('closeBasics').onclick=()=>show(null);
+$('editBasics').onclick=()=>startSetup(true);
+
+// ---- Wake by name ----
+// Chrome's built-in speech recognition turns sound into text (Chrome does this on Google's servers).
+// THE DOORMAN below checks each phrase for the assistant's name. Phrases without the name are
+// dropped on the spot: never stored, never logged, never sent to SIM SIM's brain.
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let listenOn=true,blocked=false,needTap=false,rec=null,errCount=0,cooldown=0,mode='idle',speaking=false,dictating=false,dict=null;
+let cmdStart=0,stripFirst=true,silenceT=null,giveUpT=null,greetT=null,actx=null;
+try{listenOn=localStorage.getItem('simsim-listen')!=='off'}catch(e){}
+
+function norm(s){return s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim()}
+function wakeList(){const n=norm(aName),l=[n,n.replace(/ /g,''),n+' '+n];
+  if(n==='sim sim')l.push('simsim','seem seem','sim seem','seem sim');
+  return [...new Set(l)].filter(Boolean).sort((a,b)=>b.length-a.length)}
+// Returns null (no name: drop it), '' (name only), or the words said after the name.
+function matchWake(raw){const t=norm(raw);if(!t)return null;
+  for(const w of wakeList()){if(t===w)return '';if(t.startsWith(w+' '))return t.slice(w.length+1)}
+  return null}
+
+function paintCap(){$('cap').textContent=!SR?'Voice needs Chrome. You can still type.'
+  :listenOn?'Say "'+aName+'" or press the mic. You can also type.':'Press the mic or type. Turn Listening on to wake me by name.'}
+function idle(){
+  if(!SR)status('Voice needs Chrome','warn');
+  else if(blocked)status('Mic is blocked. Click to fix','warn');
+  else if(listenOn&&needTap)status('Tap to let '+aName+' listen','warn');
+  else status(listenOn?'Listening for '+aName:'Ready')}
+function shouldListen(){return !!SR&&listenOn&&!blocked&&!needTap&&$('gate').hidden&&!document.hidden&&!speaking&&!dictating}
+
+function startRec(){if(rec||!shouldListen())return;
+  const r=new SR();r.continuous=true;r.interimResults=true;
+  r.onresult=onResult;
+  r.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){blocked=true;idle()}else errCount++};
+  r.onend=()=>{if(rec!==r)return;rec=null;   // Chrome stops on its own now and then: start again
+    const d=errCount?Math.min(2000,300*Math.pow(2,errCount-1)):300;setTimeout(startRec,d)};
+  rec=r;try{r.start()}catch(e){rec=null}}
+function pauseRec(){if(!rec)return;const r=rec;rec=null;r.onresult=null;try{r.abort()}catch(e){}}
+function resumeRec(){setTimeout(startRec,300)}
+
+function onResult(e){errCount=0;
+  if(mode==='idle'){if(Date.now()<cooldown)return;
+    for(let i=e.resultIndex;i<e.results.length;i++){const rest=matchWake(e.results[i][0].transcript);
+      if(rest!==null){wake(i,rest);return}}
+    return}                         // no name heard: nothing is kept
+  if(mode==='awake')updateCommand(e.results)}
+
+function wake(i,rest){mode='awake';cmdStart=i;stripFirst=true;status('Awake','awake');chime();
+  giveUpT=setTimeout(endAwake,8000);
+  if(rest)showLive(rest);else greetT=setTimeout(greet,700)}  // wait a beat: if words follow the name, skip the greeting
+function greet(){greetT=null;if(mode!=='awake')return;const line="I'm here, "+callName()+".";
+  if(!speakOn||!window.speechSynthesis){addSim(line);return}
+  pauseRec();speaking=true;const u=new SpeechSynthesisUtterance(line);
+  u.onend=u.onerror=()=>{speaking=false;if(mode!=='awake')return;cmdStart=0;stripFirst=false;
+    clearTimeout(giveUpT);giveUpT=setTimeout(endAwake,8000);startRec()};
+  speechSynthesis.speak(u)}
+function commandText(results){const parts=[];
+  for(let i=cmdStart;i<results.length;i++){let t=results[i][0].transcript;
+    if(i===cmdStart&&stripFirst){const r=matchWake(t);t=r===null?'':r}parts.push(t.trim())}
+  return parts.join(' ').replace(/\s+/g,' ').trim()}
+function updateCommand(results){const t=commandText(results);if(!t)return;
+  clearTimeout(greetT);greetT=null;clearTimeout(giveUpT);clearTimeout(silenceT);showLive(t);
+  if(results[results.length-1].isFinal)sendCommand(t);else silenceT=setTimeout(()=>sendCommand(t),1200)}
+function sendCommand(t){if(mode!=='awake')return;clearTimers();pauseRec();hideLive();input.value='';sendText(t)}
+function endAwake(){clearTimers();mode='idle';hideLive();input.value='';idle()}
+function clearTimers(){[silenceT,giveUpT,greetT].forEach(clearTimeout);silenceT=giveUpT=greetT=null}
+function showLive(t){$('live').hidden=false;$('livetxt').textContent=t;input.value=t}
+function hideLive(){$('live').hidden=true;$('livetxt').textContent=''}
+
+function chime(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();
+  const t=actx.currentTime;[[660,0],[880,.13]].forEach(([f,d])=>{const o=actx.createOscillator(),g=actx.createGain();
+    o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,t+d);g.gain.exponentialRampToValueAtTime(.07,t+d+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,t+d+.25);o.connect(g).connect(actx.destination);o.start(t+d);o.stop(t+d+.3)})}catch(e){}}
+
+function paintListen(){$('listentxt').textContent=listenOn?'ON':'OFF';$('listen').setAttribute('aria-pressed',listenOn)}
+$('listen').onclick=()=>{listenOn=!listenOn;try{localStorage.setItem('simsim-listen',listenOn?'on':'off')}catch(e){}
+  paintListen();paintCap();if(listenOn)startRec();else{pauseRec();if(mode==='awake')endAwake()}if(mode==='idle')idle()};
+$('pill').onclick=()=>{if(blocked){$('help').hidden=!$('help').hidden;return}
+  if(needTap){needTap=false;idle();startRec()}};   // this first start makes Chrome ask for the mic
+document.addEventListener('visibilitychange',()=>{if(document.hidden){pauseRec();if(mode==='awake')endAwake()}else startRec()});
+
+// Push-to-talk: the mic button pauses the doorman, types your words into the box, then the doorman resumes.
+$('mic').onclick=()=>{if(!SR)return;if(dict){dict.stop();return}
+  if(mode==='awake')endAwake();dictating=true;pauseRec();
+  const base=input.value.trim()?input.value.trim()+' ':'';dict=new SR();dict.interimResults=true;
+  dict.onresult=e=>{let t='';for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;input.value=base+t.trim()};
+  dict.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){blocked=true;$('help').hidden=false}};
+  dict.onend=()=>{dict=null;dictating=false;$('mic').classList.remove('on');idle();startRec();input.focus()};
+  try{dict.start();$('mic').classList.add('on');status('Listening','busy')}catch(e){dict=null;dictating=false;idle()}};
+
+async function initListening(){paintListen();paintCap();
+  if(!SR){$('listen').hidden=true;$('mic').hidden=true;idle();return}
+  try{const p=await navigator.permissions.query({name:'microphone'});
+    const apply=()=>{blocked=p.state==='denied';needTap=p.state==='prompt';if(!blocked)$('help').hidden=true;
+      if(mode==='idle')idle();startRec()};
+    apply();p.onchange=apply}            // re-allowing the mic recovers listening without a reload
+  catch(e){needTap=true;idle()}}
+
+// On load: returning user goes straight in, themed; new visitor sees sign-in.
+if(profile){applyProfile(profile);addSim('Welcome back, '+profile.callName+'.');show(null)}
+initListening();
+scroll();
+</script>

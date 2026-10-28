@@ -1,0 +1,8 @@
+# secrets: the Meta API key and the Firebase service-account path live here, never commit it
+.env
+# Firebase service-account keys must never be in the repo (they belong outside this folder)
+*firebase-adminsdk*.json
+service-account*.json
+node_modules/
+# user notebooks (personal data)
+data/

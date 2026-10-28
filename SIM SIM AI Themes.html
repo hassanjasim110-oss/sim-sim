@@ -1,0 +1,160 @@
+<title>SIM SIM AI Themes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Exo+2:wght@600;800&family=Michroma&family=Orbitron:wght@600;800&family=Oxanium:wght@600;800&family=Rajdhani:wght@600;700&family=Saira:wght@600;800&family=Share+Tech+Mono&family=Syncopate:wght@700&display=swap">
+<style>
+/* Layout: a gallery wall of ten futuristic SIM SIM windows, two per row on desktop, one on phone. Every window keeps the glowing SIM SIM core. */
+:root{
+  --pg:#0c0d10; --pg-card:#15171b; --pg-line:#2a2d33; --pg-fg:#eef0f3; --pg-muted:#a1a7b0; --pg-pick:#46e3ff; --pg-on:#04141b;
+  --display:'Oxanium','Trebuchet MS',sans-serif; --body:Verdana,Geneva,sans-serif; color-scheme:dark;
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--pg-fg);font-family:var(--body);font-size:16px;line-height:1.6}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible{outline:2px solid var(--pg-pick);outline-offset:2px}
+.page{max-width:1260px;margin:0 auto;padding-block:40px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.head{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,4.5vw,46px);letter-spacing:2px;margin:0;line-height:1.1}
+.head p{margin:0;color:var(--pg-muted);max-width:64ch}
+.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.wakeall{font-family:var(--display);font-weight:700;letter-spacing:1px;border:1px solid var(--pg-pick);color:var(--pg-pick);border-radius:10px;padding:8px 16px}
+.wakeall:hover{background:rgba(70,227,255,.1)}
+.picks{font-size:15px;color:var(--pg-muted)}.picks b{color:var(--pg-pick);font-family:var(--display)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:920px){.grid{grid-template-columns:1fr}}
+.tcard{background:var(--pg-card);border:1px solid var(--pg-line);border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.tcard.picked{border-color:var(--pg-pick);box-shadow:0 0 0 2px var(--pg-pick)}
+.thead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 4px}
+.tname{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:1px}
+.tvibe{color:var(--pg-muted);font-size:14px}
+.ttag{font-size:11px;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--pg-line);border-radius:7px;padding:0 7px;color:var(--pg-muted)}
+.pick{margin-left:auto;border:1.5px solid var(--pg-line);border-radius:12px;padding:6px 14px;font-family:var(--display);font-weight:700;font-size:13px}
+.tcard.picked .pick{background:var(--pg-pick);border-color:var(--pg-pick);color:var(--pg-on)}
+
+/* ---- one futuristic SIM SIM window; every color comes from the theme's variables ---- */
+.win{container-type:inline-size;position:relative;height:420px;border-radius:16px;overflow:hidden;display:flex;gap:10px;padding:10px;
+  color:var(--text);background:var(--base);font-size:13px;line-height:1.5;border:1px solid var(--edge)}
+.win::before{content:"";position:absolute;inset:0;pointer-events:none}
+.win[data-fx="grid"]::before{background:linear-gradient(var(--edge) 1px,transparent 1px) 0 0/28px 28px,linear-gradient(90deg,var(--edge) 1px,transparent 1px) 0 0/28px 28px;opacity:.35}
+.win[data-fx="scan"]::before{background:repeating-linear-gradient(0deg,var(--edge) 0 1px,transparent 1px 4px);opacity:.35}
+.win[data-fx="stars"]::before{background:
+  radial-gradient(1.5px 1.5px at 12% 18%,var(--c1),transparent),radial-gradient(1px 1px at 33% 72%,var(--text),transparent),
+  radial-gradient(1.5px 1.5px at 58% 30%,var(--text),transparent),radial-gradient(1px 1px at 76% 64%,var(--c1),transparent),
+  radial-gradient(1.5px 1.5px at 88% 14%,var(--text),transparent),radial-gradient(1px 1px at 22% 46%,var(--c2),transparent),
+  radial-gradient(1px 1px at 66% 90%,var(--text),transparent),radial-gradient(1.5px 1.5px at 45% 8%,var(--c2),transparent);opacity:.8}
+.win[data-fx="aurora"]::before{background:radial-gradient(60% 50% at 70% 10%,color-mix(in srgb,var(--c1) 22%,transparent),transparent),radial-gradient(50% 50% at 20% 90%,color-mix(in srgb,var(--c2) 26%,transparent),transparent)}
+.win[data-fx="glow"]::before{background:radial-gradient(55% 45% at 60% 25%,color-mix(in srgb,var(--c1) 16%,transparent),transparent)}
+.win>*{position:relative}
+
+.pn{background:var(--panel);border:1px solid var(--edge);border-radius:var(--r);position:relative}
+.win[data-corner="cut"] .pn{border-radius:0;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+.win[data-corner="bracket"] .pn::before,.win[data-corner="bracket"] .pn::after{content:"";position:absolute;width:12px;height:12px;border:2px solid var(--c1);pointer-events:none}
+.win[data-corner="bracket"] .pn::before{top:-2px;left:-2px;border-right:0;border-bottom:0;border-top-left-radius:var(--r)}
+.win[data-corner="bracket"] .pn::after{bottom:-2px;right:-2px;border-left:0;border-top:0;border-bottom-right-radius:var(--r)}
+.fd{font-family:var(--font),'Trebuchet MS',sans-serif}
+
+.ws{width:29%;flex-shrink:0;padding:12px 9px;display:flex;flex-direction:column;gap:3px}
+.wb{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;letter-spacing:2px;padding:0 3px 10px;white-space:nowrap}
+.mc{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--c1);display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 10px color-mix(in srgb,var(--c1) 55%,transparent)}
+.mc i{width:8px;height:8px;border-radius:50%;background:var(--c1);box-shadow:0 0 8px var(--c1)}
+.wn{border:1px solid var(--edgehi);border-radius:calc(var(--r) * .6);padding:6px 9px;font-weight:700;font-size:11px;letter-spacing:1px;margin-bottom:6px;background:color-mix(in srgb,var(--c1) 10%,transparent)}
+.wr{padding:5px 8px;border-radius:calc(var(--r) * .5);font-size:12px;color:var(--dim);display:flex;align-items:center;white-space:nowrap;overflow:hidden}
+.wr.on{color:var(--text);background:color-mix(in srgb,var(--c1) 14%,transparent);box-shadow:inset 2px 0 0 var(--c1)}
+.wr i{margin-left:auto;font-style:normal;background:var(--c1);color:var(--on);border-radius:6px;font-size:10px;padding:0 6px;font-weight:700}
+.wm{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0}
+.wt{display:flex;align-items:center;gap:6px;padding:7px 10px}
+.wt .ttl{font-weight:800;letter-spacing:2px;font-size:12px;margin-right:auto;white-space:nowrap}
+.rd{font-family:'Share Tech Mono',Consolas,monospace;font-size:10px;letter-spacing:1px;border:1px solid var(--edge);border-radius:6px;padding:1px 7px;color:var(--dim);white-space:nowrap}
+.rd b{font-weight:400;color:var(--label)}
+.win.awake .rd.st b{color:var(--awake)}
+.wd{flex:1;display:flex;flex-direction:column;min-height:0;padding:10px 12px;gap:8px;overflow:hidden}
+.cz{display:flex;align-items:center;gap:14px}
+.core{width:84px;height:84px;position:relative;flex-shrink:0}
+.core svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.rg{fill:none;transform-origin:50% 50%}
+.r1{stroke:var(--edgehi);stroke-width:1;stroke-dasharray:2 5;animation:spin 40s linear infinite}
+.r2{stroke:var(--c1);stroke-width:2.4;stroke-dasharray:44 18 10 18;animation:spin 18s linear infinite reverse;filter:drop-shadow(0 0 3px var(--c1))}
+.r3{stroke:var(--c1);stroke-width:1;stroke-dasharray:1 3;opacity:.7;animation:spin 9s linear infinite}
+.orb{position:absolute;inset:27px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;color:var(--on);
+  background:radial-gradient(circle at 40% 35%,color-mix(in srgb,var(--c1) 35%,#fff),var(--c1) 48%,var(--c2));
+  box-shadow:0 0 18px color-mix(in srgb,var(--c1) 60%,transparent);animation:breathe 3.5s ease-in-out infinite}
+.win.awake .r2{stroke:var(--awake);animation-duration:4s;filter:drop-shadow(0 0 5px var(--awake))}
+.win.awake .r3{stroke:var(--awake);animation-duration:2.5s}
+.win.awake .orb{background:radial-gradient(circle at 40% 35%,color-mix(in srgb,var(--awake) 35%,#fff),var(--awake) 50%,color-mix(in srgb,var(--awake) 60%,#000));box-shadow:0 0 22px color-mix(in srgb,var(--awake) 65%,transparent);color:#111}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{50%{transform:scale(1.07)}}
+.cs{display:flex;flex-direction:column;min-width:0}
+.cs .lb{font-family:'Share Tech Mono',Consolas,monospace;font-size:10px;letter-spacing:2px;color:var(--label);text-transform:uppercase}
+.cs .hd{font-weight:800;font-size:16px;letter-spacing:1px;line-height:1.2}
+.mg{display:flex;flex-direction:column;gap:2px;max-width:86%}
+.mg .who{font-family:'Share Tech Mono',Consolas,monospace;font-size:10px;letter-spacing:2px;color:var(--label)}
+.mg .tx{background:color-mix(in srgb,var(--c1) 7%,transparent);border:1px solid var(--edge);border-radius:4px calc(var(--r) * .7) calc(var(--r) * .7) calc(var(--r) * .7);padding:5px 10px}
+.mg.u{align-self:flex-end;align-items:flex-end}.mg.u .who{color:var(--dim)}
+.mg.u .tx{background:color-mix(in srgb,var(--text) 7%,transparent);border-color:color-mix(in srgb,var(--text) 18%,transparent);border-radius:calc(var(--r) * .7) 4px calc(var(--r) * .7) calc(var(--r) * .7)}
+.src{margin-top:5px;border:1px dashed var(--edgehi);border-radius:calc(var(--r) * .5);padding:3px 8px;font-size:11px;color:var(--dim)}
+.src b{color:var(--label);font-family:'Share Tech Mono',Consolas,monospace;font-weight:400;letter-spacing:1px}
+.wc{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 10px}
+.wv{display:flex;align-items:center;gap:2px;height:20px}
+.wv i{width:2px;height:5px;border-radius:2px;background:var(--c1);opacity:.6}
+.win.awake .wv i{background:var(--awake);opacity:1;animation:wave .9s ease-in-out infinite}
+.wv i:nth-child(2n){animation-delay:.15s}.wv i:nth-child(3n){animation-delay:.3s}
+@keyframes wave{50%{height:18px}}
+.ph{flex:1;color:var(--dim);font-size:12px;white-space:nowrap;overflow:hidden;min-width:0}
+.rb{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex-shrink:0}
+.rb svg{width:13px;height:13px;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.rb.m{background:var(--c1);box-shadow:0 0 10px color-mix(in srgb,var(--c1) 55%,transparent)}.rb.m svg{stroke:var(--on)}
+.rb.s{border:1px solid var(--edgehi)}.rb.s svg{stroke:var(--label)}
+@container (max-width:470px){.ws{display:none}.rd.opt{display:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="page">
+  <header class="head">
+    <h1>SIM SIM AI Themes</h1>
+    <p>Ten futuristic looks, each shown as a small SIM SIM window. Every one keeps the glowing SIM SIM core. Text colors were checked so they stay easy to read.</p>
+    <div class="bar">
+      <button class="wakeall" id="wakeAll">Pretend I said "SIM SIM"</button>
+      <span class="picks" id="picks" aria-live="polite">Your picks: none yet</span>
+    </div>
+  </header>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+const THEMES=[{"id":"aurora","name":"Aurora","vibe":"Calm glow","font":"Exo 2","r":16,"corner":"round","fx":"aurora","light":0,"v":{"base":"#071a1f","panel":"rgba(20,62,72,.45)","edge":"rgba(94,242,214,.25)","edgehi":"rgba(94,242,214,.65)","text":"#e6fbff","dim":"#8fb8c0","c1":"#5ef2d6","c2":"#5b45d6","awake":"#ffd166","on":"#04161a"}},{"id":"ember","name":"Ember","vibe":"Hot and sharp","font":"Chakra Petch","r":2,"corner":"cut","fx":"scan","light":0,"v":{"base":"#0d0605","panel":"rgba(64,20,12,.45)","edge":"rgba(255,90,44,.28)","edgehi":"rgba(255,90,44,.7)","text":"#fff0ea","dim":"#c29f93","c1":"#ff5a2c","c2":"#8f1a0a","awake":"#ffe14d","on":"#1a0603"}},{"id":"neon","name":"Neon Drive","vibe":"Retro future","font":"Michroma","r":10,"corner":"bracket","fx":"grid","light":0,"v":{"base":"#12051f","panel":"rgba(52,16,84,.45)","edge":"rgba(255,60,172,.28)","edgehi":"rgba(255,60,172,.7)","text":"#fbeaff","dim":"#bba0cf","c1":"#ff3cac","c2":"#2bb7ff","awake":"#fff35c","on":"#1a0526"}},{"id":"arctic","name":"Arctic","vibe":"Bright and clean","font":"Saira","r":18,"corner":"round","fx":"grid","light":1,"v":{"base":"#eef6fb","panel":"rgba(255,255,255,.72)","edge":"rgba(30,120,170,.22)","edgehi":"rgba(30,120,170,.55)","text":"#0c2230","dim":"#4a6677","c1":"#2aa8e0","c2":"#1b5fa8","awake":"#ff8a3d","on":"#04202e"}},{"id":"solar","name":"Solar","vibe":"Gold and quiet","font":"Syncopate","r":4,"corner":"bracket","fx":"glow","light":0,"v":{"base":"#0b0904","panel":"rgba(48,38,12,.45)","edge":"rgba(245,197,66,.25)","edgehi":"rgba(245,197,66,.65)","text":"#fff6df","dim":"#bcab83","c1":"#f5c542","c2":"#9a6a08","awake":"#7ef0ff","on":"#1a1404"}},{"id":"terminal","name":"Terminal","vibe":"Old-school hacker","font":"Share Tech Mono","r":0,"corner":"bracket","fx":"scan","light":0,"v":{"base":"#020a04","panel":"rgba(10,42,16,.45)","edge":"rgba(57,255,106,.25)","edgehi":"rgba(57,255,106,.65)","text":"#c8ffd2","dim":"#72b080","c1":"#39ff6a","c2":"#0c7a2c","awake":"#e8ff4a","on":"#021405"}},{"id":"nebula","name":"Nebula","vibe":"Deep space","font":"Oxanium","r":14,"corner":"round","fx":"stars","light":0,"v":{"base":"#070818","panel":"rgba(32,26,74,.45)","edge":"rgba(255,122,217,.25)","edgehi":"rgba(255,122,217,.65)","text":"#eeeaff","dim":"#a7a2d2","c1":"#ff7ad9","c2":"#5b4bf0","awake":"#7affe0","on":"#12081f"}},{"id":"graphite","name":"Graphite","vibe":"Steel and calm","font":"Rajdhani","r":6,"corner":"cut","fx":"grid","light":0,"v":{"base":"#111316","panel":"rgba(44,48,55,.55)","edge":"rgba(220,228,236,.18)","edgehi":"rgba(220,228,236,.5)","text":"#f1f3f5","dim":"#a3aab2","c1":"#e9eef3","c2":"#6d7885","awake":"#4fd1ff","on":"#111316"}},{"id":"abyss","name":"Abyss","vibe":"Glowing deep sea","font":"Exo 2","r":20,"corner":"round","fx":"stars","light":0,"v":{"base":"#020c14","panel":"rgba(6,44,60,.45)","edge":"rgba(45,255,196,.22)","edgehi":"rgba(45,255,196,.6)","text":"#dcfff6","dim":"#82b5aa","c1":"#2dffc4","c2":"#0a6280","awake":"#f9ff6b","on":"#02140f"}},{"id":"quantum","name":"Quantum","vibe":"Bright lab","font":"Orbitron","r":12,"corner":"bracket","fx":"grid","light":1,"v":{"base":"#f7f6fb","panel":"rgba(255,255,255,.75)","edge":"rgba(110,60,230,.2)","edgehi":"rgba(110,60,230,.5)","text":"#1a1430","dim":"#5c5676","c1":"#7b3cff","c2":"#2f0f9e","awake":"#ff4d8d","on":"#ffffff"}}];
+const mic='<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+const up='<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+let picks=[];try{picks=JSON.parse(localStorage.getItem('simsim-ai-picks'))||[]}catch(e){}
+const grid=document.getElementById('grid');
+function now(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+THEMES.forEach(t=>{const v=t.v,card=document.createElement('article');card.className='tcard';card.dataset.id=t.id;
+  card.innerHTML='<div class="thead"><span class="tname"></span><span class="tvibe"></span>'+(t.light?'<span class="ttag">Light</span>':'')+'<button class="pick" aria-pressed="false">Pick</button></div>'+
+  '<div class="win" aria-hidden="true">'+
+   '<div class="ws pn"><div class="wb fd"><span class="mc"><i></i></span>SIM SIM</div><div class="wn fd">+ New chat</div>'+
+    '<div class="wr on">Chat</div><div class="wr">Morning briefing</div><div class="wr">Open loops <i>1</i></div><div class="wr">Memory</div></div>'+
+   '<div class="wm"><div class="wt pn"><span class="ttl fd">SIM SIM</span><span class="rd st">STATUS <b class="stt">LISTENING</b></span><span class="rd opt">TIME <b class="clk"></b></span></div>'+
+    '<div class="wd pn"><div class="cz"><div class="core"><svg viewBox="0 0 84 84"><circle class="rg r1" cx="42" cy="42" r="40"/><circle class="rg r2" cx="42" cy="42" r="33"/><circle class="rg r3" cx="42" cy="42" r="26"/></svg><div class="orb fd">S</div></div>'+
+     '<div class="cs"><span class="lb lbl">Standing by</span><span class="hd fd hdl">Listening for SIM SIM</span></div></div>'+
+     '<div class="mg u"><span class="who">HASSAN //</span><div class="tx">When is my license deadline?</div></div>'+
+     '<div class="mg"><span class="who">SIM SIM //</span><div class="tx">Your deadline is November 18.<div class="src"><b>SOURCE</b> · TN Dept. of Safety</div></div></div></div>'+
+    '<div class="wc pn"><span class="wv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="ph">Talk or type to SIM SIM…</span><span class="rb m">'+mic+'</span><span class="rb s">'+up+'</span></div></div></div>';
+  const w=card.querySelector('.win');w.dataset.fx=t.fx;w.dataset.corner=t.corner;
+  const vars=Object.assign({},v,{r:t.r+'px',font:"'"+t.font+"'",label:t.light?v.c2:v.c1});
+  for(const k in vars)w.style.setProperty('--'+k,vars[k]);
+  card.querySelector('.tname').textContent=t.name;card.querySelector('.tvibe').textContent=t.vibe;
+  card.querySelector('.pick').onclick=()=>{picks=picks.includes(t.id)?picks.filter(x=>x!==t.id):[...picks,t.id];try{localStorage.setItem('simsim-ai-picks',JSON.stringify(picks))}catch(e){}paint()};
+  grid.appendChild(card)});
+function tick(){document.querySelectorAll('.clk').forEach(c=>c.textContent=now())}
+tick();setInterval(tick,10000);
+function paint(){document.querySelectorAll('.tcard').forEach(c=>{const on=picks.includes(c.dataset.id);c.classList.toggle('picked',on);
+  const b=c.querySelector('.pick');b.textContent=on?'Picked':'Pick';b.setAttribute('aria-pressed',on)});
+  const names=THEMES.filter(t=>picks.includes(t.id)).map(t=>t.name),el=document.getElementById('picks');
+  el.textContent='Your picks: ';const b=document.createElement('b');b.textContent=names.length?names.join(', '):'none yet';el.appendChild(b)}
+paint();
+// preview only: every window acts out the wake moment for a few seconds, no mic is used
+let timer=null;
+function setAll(awake){document.querySelectorAll('.win').forEach(w=>{w.classList.toggle('awake',awake);
+  w.querySelector('.stt').textContent=awake?'AWAKE':'LISTENING';w.querySelector('.lbl').textContent=awake?'Awake':'Standing by';
+  w.querySelector('.hdl').textContent=awake?"I'm here, Hassan.":'Listening for SIM SIM'})}
+document.getElementById('wakeAll').onclick=()=>{clearTimeout(timer);setAll(true);timer=setTimeout(()=>setAll(false),3500)};
+</script>

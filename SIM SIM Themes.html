@@ -1,0 +1,112 @@
+<title>SIM SIM Themes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap">
+<style>
+/* Layout: a gallery wall — each theme shown as a real SIM SIM window in miniature, two per row on desktop, one on phone */
+:root{
+  --pg:#f6f4f1; --pg-card:#ffffff; --pg-line:#e6e1da; --pg-fg:#221d18; --pg-muted:#6f665d; --pg-pick:#c94818;
+  --display:'Poppins',Verdana,Geneva,sans-serif; --body:Verdana,Geneva,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --pg:#151311; --pg-card:#1e1b18; --pg-line:#34302b; --pg-fg:#f1ebe4; --pg-muted:#ada398; --pg-pick:#ff8a52; color-scheme:dark}}
+:root[data-theme="dark"]{--pg:#151311; --pg-card:#1e1b18; --pg-line:#34302b; --pg-fg:#f1ebe4; --pg-muted:#ada398; --pg-pick:#ff8a52; color-scheme:dark}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--pg-fg);font-family:var(--body);font-size:16px;line-height:1.6}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible{outline:2px solid var(--pg-pick);outline-offset:2px}
+.page{max-width:1240px;margin:0 auto;padding-block:40px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.head{display:flex;flex-direction:column;gap:8px;margin-bottom:28px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,4.5vw,44px);margin:0;line-height:1.1;text-wrap:balance}
+.head p{margin:0;color:var(--pg-muted);max-width:62ch}
+.picks{margin-top:10px;font-size:15px}
+.picks b{font-family:var(--display);color:var(--pg-pick)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+
+.tcard{background:var(--pg-card);border:1px solid var(--pg-line);border-radius:24px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.tcard.picked{border-color:var(--pg-pick);box-shadow:0 0 0 2px var(--pg-pick)}
+.thead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:2px 4px}
+.tname{font-family:var(--display);font-weight:700;font-size:18px}
+.tvibe{color:var(--pg-muted);font-size:14px}
+.ttag{font-size:11px;letter-spacing:1px;text-transform:uppercase;font-family:var(--display);font-weight:600;border:1px solid var(--pg-line);border-radius:8px;padding:1px 7px;color:var(--pg-muted)}
+.sw{display:flex;gap:5px;margin-left:auto}
+.sw span{width:16px;height:16px;border-radius:50%;border:1px solid var(--pg-line)}
+.pick{border:1.5px solid var(--pg-line);border-radius:14px;padding:6px 14px;font-family:var(--display);font-weight:600;font-size:13px}
+.tcard.picked .pick{background:var(--pg-pick);border-color:var(--pg-pick);color:#fff}
+
+/* the mini SIM SIM window: every color comes from the theme's own variables */
+.win{container-type:inline-size;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:18px;overflow:hidden;display:flex;height:330px;font-size:13px;line-height:1.5}
+.ws{width:30%;background:var(--side);border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.wb{display:flex;align-items:center;gap:7px;font-family:var(--display);font-weight:800;font-size:14px;padding:0 4px 8px}
+.av{width:24px;height:24px;border-radius:50%;flex-shrink:0;background:linear-gradient(140deg,var(--a2),var(--accent));color:var(--on);display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:11px}
+.wn{background:var(--text);color:var(--bg);border-radius:10px;padding:6px 9px;font-weight:700;font-size:12px;margin-bottom:6px}
+.wr{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:8px;font-size:12px;white-space:nowrap;overflow:hidden}
+.wr.on{background:var(--bubble);font-weight:700}
+.wr i{margin-left:auto;font-style:normal;background:var(--accent);color:var(--on);border-radius:8px;font-size:10px;padding:0 6px;font-weight:700}
+.wm{flex:1;display:flex;flex-direction:column;min-width:0}
+.wt{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.wt b{font-family:var(--display);font-size:13px}
+.wp{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.wp::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.wc{flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.am{display:flex;gap:8px;align-items:flex-start}
+.am .av{width:20px;height:20px;font-size:9px}
+.am small{display:block;color:var(--muted);font-size:10px;font-family:var(--display);font-weight:600}
+.um{align-self:flex-end;background:var(--bubble);border-radius:14px 14px 4px 14px;padding:6px 11px;max-width:80%}
+.ci{margin-top:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 9px;font-size:11px;color:var(--muted)}
+.ci b{color:var(--text);font-family:var(--display)}
+.wf{padding:8px 14px 12px}
+.wx{display:flex;align-items:center;gap:6px;background:var(--surface);border:1.5px solid var(--line);border-radius:20px;padding:4px 4px 4px 12px}
+.wx>span:first-child{flex:1;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden}
+.rb{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex-shrink:0}
+.rb svg{width:13px;height:13px;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.rb.m{background:var(--accent)}.rb.m svg{stroke:var(--on)}
+.rb.s{background:var(--text)}.rb.s svg{stroke:var(--bg)}
+.btn{align-self:flex-start;background:var(--accent);color:var(--on);border-radius:10px;padding:4px 12px;font-weight:700;font-size:11px;font-family:var(--display)}
+@container (max-width:420px){.ws{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="page">
+  <header class="head">
+    <h1>SIM SIM Themes</h1>
+    <p>Ten themes, each shown as a small SIM SIM window. Every text color was checked against its background so it stays easy to read. Tap <b>Pick</b> on the ones you like.</p>
+    <div class="picks" id="picks" aria-live="polite">Your picks: none yet</div>
+  </header>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+const THEMES=[{"id":"orange","name":"SIM SIM Orange","vibe":"Warm","dark":false,"v":{"bg":"#fff8f2","side":"#fcefe2","surface":"#ffffff","line":"#f0dcc8","text":"#2b1d14","muted":"#7a6250","bubble":"#fbe6d3","accent":"#c94818","on":"#ffffff","a2":"#ffb03a"}},{"id":"ocean","name":"Ocean","vibe":"Calm","dark":false,"v":{"bg":"#f4f9fd","side":"#e6f1fa","surface":"#ffffff","line":"#d3e3f0","text":"#122230","muted":"#506a7e","bubble":"#dcebf7","accent":"#1f6fb2","on":"#ffffff","a2":"#5ab8e8"}},{"id":"blossom","name":"Blossom","vibe":"Soft","dark":false,"v":{"bg":"#fff6f8","side":"#fdeaf0","surface":"#ffffff","line":"#f4d5df","text":"#2e1820","muted":"#85606c","bubble":"#fbdfe8","accent":"#c43c68","on":"#ffffff","a2":"#f59ab5"}},{"id":"forest","name":"Forest","vibe":"Fresh","dark":false,"v":{"bg":"#f5faf3","side":"#e8f2e3","surface":"#ffffff","line":"#d2e4ca","text":"#16241a","muted":"#5a6f5c","bubble":"#dcecd4","accent":"#2f7a3d","on":"#ffffff","a2":"#9acb6a"}},{"id":"sunset","name":"Sunset","vibe":"Bold","dark":false,"v":{"bg":"#fff5f0","side":"#fde5dc","surface":"#ffffff","line":"#f6cfc0","text":"#2b1512","muted":"#86584d","bubble":"#fcd9cc","accent":"#d63a4a","on":"#ffffff","a2":"#ff9f3c"}},{"id":"midnight","name":"Midnight","vibe":"Focused","dark":true,"v":{"bg":"#0f1520","side":"#151d2b","surface":"#1b2536","line":"#2a3650","text":"#e8edf6","muted":"#97a5bd","bubble":"#24314a","accent":"#6aa2ff","on":"#0b1220","a2":"#9b8cff"}},{"id":"lavender","name":"Lavender","vibe":"Gentle","dark":false,"v":{"bg":"#faf7fe","side":"#f1ebfa","surface":"#ffffff","line":"#e2d6f2","text":"#211a2e","muted":"#6d6184","bubble":"#ebe1f8","accent":"#7a4fc4","on":"#ffffff","a2":"#c3a6f0"}},{"id":"sand","name":"Sand","vibe":"Easy","dark":false,"v":{"bg":"#fbf8f1","side":"#f3ecdd","surface":"#fffdf8","line":"#e5d9c3","text":"#29231b","muted":"#75695a","bubble":"#efe5d2","accent":"#8c6430","on":"#ffffff","a2":"#d8b27a"}},{"id":"espresso","name":"Espresso","vibe":"Cozy","dark":true,"v":{"bg":"#1c1512","side":"#241b17","surface":"#2c221d","line":"#3e3129","text":"#f4e9df","muted":"#b8a393","bubble":"#3a2c24","accent":"#f0a35e","on":"#1c1512","a2":"#ffcf8a"}},{"id":"citrus","name":"Citrus","vibe":"Bright","dark":false,"v":{"bg":"#fbfdf2","side":"#f1f7dc","surface":"#ffffff","line":"#dfe9bd","text":"#1e2410","muted":"#5f6a3e","bubble":"#e8f3c6","accent":"#c9e04a","on":"#1e2410","a2":"#ffd23f"}}];
+const mic='<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+const up='<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+let picks=[];try{picks=JSON.parse(localStorage.getItem('simsim-theme-picks'))||[]}catch(e){}
+const grid=document.getElementById('grid');
+THEMES.forEach(t=>{const v=t.v,card=document.createElement('article');card.className='tcard';card.dataset.id=t.id;
+  const style=Object.entries(v).map(([k,c])=>'--'+k+':'+c).join(';');
+  card.innerHTML=
+   '<div class="thead"><span class="tname"></span><span class="tvibe"></span>'+(t.dark?'<span class="ttag">Dark</span>':'')+
+   '<span class="sw"><span style="background:'+v.accent+'"></span><span style="background:'+v.bubble+'"></span><span style="background:'+v.bg+'"></span></span>'+
+   '<button class="pick" aria-pressed="false">Pick</button></div>'+
+   '<div class="win" style="'+style+'" aria-hidden="true">'+
+    '<div class="ws"><div class="wb"><span class="av">S</span>SIM SIM</div><div class="wn">+ New chat</div>'+
+     '<div class="wr on">Chat</div><div class="wr">Morning briefing</div><div class="wr">Open loops <i>2</i></div><div class="wr">Memory</div></div>'+
+    '<div class="wm"><div class="wt"><b>SIM SIM</b><span class="wp">Listening for SIM SIM</span></div>'+
+     '<div class="wc"><div class="am"><span class="av">S</span><div><small>SIM SIM</small>I\'m here, Hassan.</div></div>'+
+      '<div class="um">When is my license deadline?</div>'+
+      '<div class="am"><span class="av">S</span><div><small>SIM SIM</small>Your deadline is November 18.'+
+       '<div class="ci"><b>Source</b> · TN Dept. of Safety</div></div></div>'+
+      '<span class="btn">Add to open loops</span></div>'+
+     '<div class="wf"><div class="wx"><span>Talk or type to SIM SIM…</span><span class="rb m">'+mic+'</span><span class="rb s">'+up+'</span></div></div></div></div>';
+  card.querySelector('.tname').textContent=t.name;card.querySelector('.tvibe').textContent=t.vibe;
+  card.querySelector('.pick').onclick=()=>{picks=picks.includes(t.id)?picks.filter(x=>x!==t.id):[...picks,t.id];save();paint()};
+  grid.appendChild(card)});
+function save(){try{localStorage.setItem('simsim-theme-picks',JSON.stringify(picks))}catch(e){}}
+function paint(){document.querySelectorAll('.tcard').forEach(c=>{const on=picks.includes(c.dataset.id);c.classList.toggle('picked',on);
+  const b=c.querySelector('.pick');b.textContent=on?'Picked':'Pick';b.setAttribute('aria-pressed',on)});
+  const names=THEMES.filter(t=>picks.includes(t.id)).map(t=>t.name);
+  document.getElementById('picks').innerHTML=names.length?'Your picks: <b></b>':'Your picks: none yet';
+  if(names.length)document.querySelector('#picks b').textContent=names.join(', ')}
+paint();
+</script>

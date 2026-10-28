@@ -1,0 +1,16 @@
+{
+  "name": "sim-sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SIM SIM - Hassan's personal assistant, powered by the Meta Model API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "firebase-admin": "14.5.0"
+  }
+}

@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sim Sim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===== Landing page (signed out) ===== -->
+<div class="landing" id="landing" hidden>
+  <header class="ltop"><div class="wrap ltop-in">
+    <div class="brand"><span class="avatar" aria-hidden="true">S</span>Sim Sim</div>
+    <span class="test-pill" data-test-pill hidden>Test mode</span>
+    <button class="ghost-btn" id="topSignIn" type="button">Sign in</button>
+  </div></header>
+
+  <section class="hero"><div class="wrap hero-in">
+    <div class="pitch">
+      <h1>Your personal assistant — that answers when you call.</h1>
+      <p>Sim Sim talks back, remembers your life, checks its facts, and follows through — like a real assistant, comfy as home.</p>
+    </div>
+
+    <div class="signin" id="signinCard" tabindex="-1" aria-live="polite">
+      <div class="state" data-state="form">
+        <span class="avatar big" aria-hidden="true">S</span>
+        <h2>Welcome to Sim Sim</h2>
+        <form id="emailForm" novalidate>
+          <label for="email">Email address</label>
+          <input id="email" type="email" autocomplete="email" placeholder="you@example.com" maxlength="254">
+          <p class="err" id="emailErr" role="alert"></p>
+          <button class="btn-primary" id="sendLink" type="submit">Email me my sign-in link</button>
+        </form>
+        <p class="fine">No password, ever. We email you a link — tap it, you're in.</p>
+      </div>
+
+      <div class="state" data-state="dev" hidden>
+        <span class="avatar big" aria-hidden="true">S</span>
+        <h2>Welcome to Sim Sim</h2>
+        <form id="devForm" novalidate>
+          <label for="devEmail">Email address</label>
+          <input id="devEmail" type="email" autocomplete="email" placeholder="you@example.com" maxlength="254">
+          <p class="err" id="devErr" role="alert"></p>
+          <button class="btn-primary" id="devEnter" type="submit">Enter</button>
+        </form>
+        <span class="dev-pill">Dev door — no verification</span>
+      </div>
+
+      <div class="state" data-state="inbox" hidden>
+        <span class="env" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3.5 7.5l8.5 6 8.5-6"/></svg></span>
+        <h2>Check your inbox</h2>
+        <p>Your sign-in link is on its way to <b id="sentTo"></b></p>
+        <p class="fine">The link works once — tap it on this device for the smoothest ride.</p>
+        <p class="err" id="resendErr" role="alert"></p>
+        <button class="btn-primary" id="resend" type="button" disabled>Resend in 60s</button>
+        <button class="textlink" id="different" type="button">Use a different email</button>
+      </div>
+
+      <div class="state" data-state="confirm" hidden>
+        <span class="avatar big" aria-hidden="true">S</span>
+        <h2>Confirm your email</h2>
+        <form id="confirmForm" novalidate>
+          <label for="confirmEmail">Email address</label>
+          <input id="confirmEmail" type="email" autocomplete="email" placeholder="you@example.com" maxlength="254">
+          <p class="err" id="confirmErr" role="alert"></p>
+          <button class="btn-primary" type="submit">Finish signing in</button>
+        </form>
+      </div>
+
+      <div class="state" data-state="working" hidden>
+        <span class="avatar big breathe" aria-hidden="true">S</span>
+        <h2>Signing you in…</h2>
+      </div>
+
+      <div class="state" data-state="error" hidden>
+        <span class="avatar big" aria-hidden="true">S</span>
+        <h2>That didn't work</h2>
+        <p id="errText"></p>
+        <button class="btn-primary" id="errBtn" type="button">Back to sign in</button>
+      </div>
+    </div>
+  </div></section>
+
+  <section class="features" aria-label="What Sim Sim does"><div class="wrap feat-grid">
+    <article class="feat"><span class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+      <h3>Call it by name</h3><p>It listens for its name and answers out loud. Hands busy, across the room — just call.</p></article>
+    <article class="feat"><span class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6zM6 3v18M10 8h5M10 12h5"/></svg></span>
+      <h3>It remembers your life</h3><p>Your notebook: your name, your people, your deadlines. It answers according to YOUR life, not the internet's guess.</p></article>
+    <article class="feat"><span class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2zM4 5v16M9 9l2 2 4-4"/></svg></span>
+      <h3>Answers you can check</h3><p>For facts that matter, Sim Sim opens the book and shows its source. No source? It says so — it never bluffs.</p></article>
+    <article class="feat"><span class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg></span>
+      <h3>It follows through</h3><p>Every task is tracked until YOU say it's done, and your morning briefing has it all waiting for you.</p></article>
+    <article class="feat"><span class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21a3 3 0 0 1 0-6h2"/></svg></span>
+      <h3>Make it yours</h3><p>Pick your colors, name your two helper bots. Your team, your colors, your vibe.</p></article>
+  </div></section>
+
+  <section class="strip"><div class="wrap">
+    <h2>SIM SIM can handle it All</h2>
+    <p>Study &amp; knowledge · Daily life · Work &amp; creating · Your connected apps · Voice &amp; memory — one assistant that does all of it together; you just talk.</p>
+  </div></section>
+
+  <section class="privacy"><div class="wrap">
+    <p>Your notebook is yours. See everything Sim Sim remembers, edit it, delete it — anytime. We ask little, we show you all of it.</p>
+  </div></section>
+
+  <footer class="lfoot"><div class="wrap lfoot-in">
+    <span>Sim Sim — your personal assistant.</span>
+    <button class="textlink" id="footSignIn" type="button">Sign in</button>
+  </div></footer>
+</div>
+
+<!-- ===== First-time setup (signed in, no profile yet; also "Edit my basics") ===== -->
+<div class="setup" id="setup" hidden>
+  <div class="setup-card" id="setupP1">
+    <div class="steps">Step 1 of 2</div>
+    <h1>First, a little about you</h1>
+    <div class="field">
+      <label for="callName">Name that your assistant can call you with</label>
+      <input id="callName" type="text" maxlength="40" autocomplete="given-name">
+      <p class="err" id="eCallName" role="alert"></p>
+    </div>
+    <div class="field">
+      <span class="flabel" id="genderLabel">Gender</span>
+      <div class="chips" id="gender" role="radiogroup" aria-labelledby="genderLabel"></div>
+      <p class="err" id="eGender" role="alert"></p>
+    </div>
+    <div class="field">
+      <label for="age">AGE</label>
+      <input id="age" type="number" min="5" max="120" step="1" inputmode="numeric">
+      <p class="err" id="eAge" role="alert"></p>
+    </div>
+    <div class="field">
+      <label for="state">STATE</label>
+      <select id="state"><option value="">Choose your state</option></select>
+      <p class="err" id="eState" role="alert"></p>
+    </div>
+    <div class="row">
+      <button class="textlink" id="cancelEdit" type="button" hidden>Cancel</button>
+      <button class="btn-primary" id="continue" type="button">Continue</button>
+    </div>
+  </div>
+
+  <div class="setup-card" id="setupP2" hidden>
+    <div class="steps">Step 2 of 2</div>
+    <h1>Now make it yours</h1>
+    <div class="field">
+      <span class="flabel">Meet your team</span>
+      <div class="team">
+        <div class="mate">
+          <span class="avatar" aria-hidden="true">S</span>
+          <span class="mate-who"><b>Sim Sim</b><small>Your assistant · the chief</small></span>
+        </div>
+        <div class="mate">
+          <span class="avatar bot b1" id="bot1Initial" aria-hidden="true">R</span>
+          <span class="mate-who"><label for="bot1">Researcher <small>· facts + sources</small></label>
+            <input id="bot1" type="text" maxlength="30" value="Researcher"></span>
+        </div>
+        <div class="mate">
+          <span class="avatar bot b2" id="bot2Initial" aria-hidden="true">C</span>
+          <span class="mate-who"><label for="bot2">Challenger <small>· a different angle + the risks</small></label>
+            <input id="bot2" type="text" maxlength="30" value="Challenger"></span>
+        </div>
+      </div>
+      <p class="err" id="eBots" role="alert"></p>
+    </div>
+    <div class="field">
+      <span class="flabel" id="themeLabel">What theme you like</span>
+      <div class="themes" id="themes" role="radiogroup" aria-labelledby="themeLabel"></div>
+    </div>
+    <p class="err" id="eSave" role="alert"></p>
+    <div class="row">
+      <button class="ghost-btn" id="back" type="button">Back</button>
+      <button class="btn-primary" id="finish" type="button">Finish</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== The app (signed in) ===== -->
+<div class="app" id="app" hidden>
+
+  <aside class="side">
+    <div class="brand"><span class="avatar" aria-hidden="true">S</span>Sim Sim</div>
+
+    <button class="newchat" id="newChat" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New chat
+    </button>
+
+    <nav class="nav" aria-label="Sim Sim">
+      <button type="button" class="on" aria-current="page" data-label="Chat">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4z"/></svg>Chat</button>
+      <button type="button" data-label="Chat history">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>Chat history</button>
+      <button type="button" data-label="Discussion">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2A5 5 0 0 1 21 19"/></svg>Discussion</button>
+      <button type="button" data-label="Morning briefing">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18M7 18a5 5 0 0 1 10 0M12 4v3M5 9l2 2M19 9l-2 2"/></svg>Morning briefing</button>
+      <button type="button" data-label="Open loops">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3l3 3-3 3M20 6H8a4 4 0 0 0-4 4v1M7 21l-3-3 3-3M4 18h12a4 4 0 0 0 4-4v-1"/></svg>Open loops<span class="badge" aria-label="0 open">0</span></button>
+    </nav>
+
+    <p class="note" id="navNote" aria-live="polite"></p>
+
+    <button class="settings-link" id="openSettings" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings
+    </button>
+
+    <div class="profile-row">
+      <button class="profile" id="profile" type="button" aria-pressed="false">
+        <span class="me" id="meInitial" aria-hidden="true">H</span>
+        <span class="who"><span class="who-name" id="whoName">Profile</span><small class="who-email" id="whoEmail"></small></span>
+      </button>
+      <button class="signout" id="signOut" type="button">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <h1 class="title">Sim Sim</h1>
+      <div class="controls">
+        <span class="test-pill" data-test-pill hidden>Test mode</span>
+        <span class="dev-pill" data-dev-pill hidden>Dev door — no verification</span>
+        <button class="pill" id="pill" type="button"><span class="dot" aria-hidden="true"></span><span id="pillText" role="status">Listening for Sim Sim</span></button>
+        <button class="speak" id="listen" type="button" aria-pressed="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          Listening: <b id="listenText">ON</b>
+        </button>
+        <button class="speak" id="speak" type="button" aria-pressed="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+          Speak answers: <b id="speakText">ON</b>
+        </button>
+      </div>
+    </header>
+    <div class="help" id="micHelp" hidden>
+      <b>To let the mic work:</b> click the lock icon at the left of Chrome's address bar, set <b>Microphone</b> to <b>Allow</b>.
+      Listening starts again by itself — if it doesn't, reload the page.
+    </div>
+    <div class="live" id="live" hidden><span class="lbl">Hearing</span><span id="liveText"></span></div>
+
+    <section class="thread" id="thread" aria-live="polite">
+      <div class="col" id="col">
+        <div class="empty" id="empty">
+          <span class="avatar big" aria-hidden="true">S</span>
+          <h2 id="emptyTitle">Hi there</h2>
+          <p>Talk or type below to start.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pview" id="profileView" hidden aria-labelledby="pviewTitle">
+      <div class="pview-in">
+        <h2 id="pviewTitle">Your profile</h2>
+        <dl class="basics" id="basicsList"></dl>
+        <div class="row"><span></span><button class="btn-primary" id="editBasics" type="button">Edit my basics</button></div>
+        <section class="memory" aria-labelledby="memTitle">
+          <h3 id="memTitle">What Sim Sim remembers</h3>
+          <ul class="facts" id="factList"></ul>
+          <p class="mem-empty" id="memEmpty" hidden>Nothing yet — tell me something worth remembering.</p>
+          <p class="err" id="memErr" role="alert"></p>
+          <div class="row" id="forgetRow" hidden>
+            <span class="confirm-q" id="forgetAsk" hidden></span>
+            <button class="ghost-btn" id="forgetAll" type="button">Forget everything</button>
+            <button class="ghost-btn" id="forgetCancel" type="button" hidden>Cancel</button>
+            <button class="btn-primary danger" id="forgetYes" type="button" hidden>Yes, forget everything</button>
+          </div>
+        </section>
+        <div class="honesty">
+          <h3>How listening works</h3>
+          <p>Listening works while Sim Sim is open in Chrome.</p>
+          <p>Sim Sim hears you through Chrome's built-in voice typing. To turn your voice into words, Chrome sends it to Google's speech service — that's how the free built-in tool works, and it happens whether or not you say the name. Words without your assistant's name never reach Sim Sim's server or its brain, and Sim Sim never saves them — but they do pass through Google first. Want the mic off except when you choose? Turn Listening off and type instead — or use push-to-talk, where the mic only runs while you hold the button (it uses the same Google service while it runs).</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pview" id="settingsView" hidden aria-labelledby="setTitle">
+      <div class="pview-in settings">
+        <div class="set-head">
+          <button type="button" class="mini-btn" id="setBack" aria-label="Back to where you were">← Back</button>
+          <h2 id="setTitle">Settings</h2>
+        </div>
+
+        <section class="set-sec" aria-labelledby="setAccount">
+          <h3 id="setAccount">Account</h3>
+          <div class="set-row"><span><span id="setName"></span><small id="setWho"></small></span><button type="button" class="mini-btn" id="setSignOut">Sign out</button></div>
+        </section>
+
+        <section class="set-sec" aria-labelledby="setAppearance">
+          <h3 id="setAppearance">Appearance</h3>
+          <div class="set-themes" id="setThemes" role="radiogroup" aria-label="Theme"></div>
+          <div class="set-row"><span>Text size</span>
+            <div class="seg" id="setText" role="radiogroup" aria-label="Text size">
+              <button type="button" role="radio" data-v="comfortable">Comfortable</button><button type="button" role="radio" data-v="large">Large</button></div></div>
+        </section>
+
+        <section class="set-sec" aria-labelledby="setVoice">
+          <h3 id="setVoice">Voice</h3>
+          <div class="set-row"><span>Speak answers</span><button type="button" class="switch" id="setSpeak" role="switch" aria-checked="true"><i></i></button></div>
+          <div class="set-row"><span>Speaking speed</span>
+            <div class="seg" id="setRate" role="radiogroup" aria-label="Speaking speed">
+              <button type="button" role="radio" data-v="slower">Slower</button><button type="button" role="radio" data-v="normal">Normal</button><button type="button" role="radio" data-v="faster">Faster</button></div></div>
+          <p class="set-note">More voices are coming. Right now Sim Sim uses your device's voice.</p>
+        </section>
+
+        <section class="set-sec" aria-labelledby="setBrief">
+          <h3 id="setBrief">Briefing &amp; loops</h3>
+          <div class="set-row"><span>Morning briefing<small>Your briefing is ready when you open Sim Sim.</small></span><button type="button" class="switch" id="setBriefOn" role="switch" aria-checked="true" aria-label="Morning briefing"><i></i></button></div>
+          <div class="set-row"><span>Open-loop reminders<small>The gentle once-a-day heads-up when something is due soon.</small></span><button type="button" class="switch" id="setReminders" role="switch" aria-checked="true"><i></i></button></div>
+        </section>
+
+        <section class="set-sec" aria-labelledby="setApps">
+          <h3 id="setApps">Connected apps</h3>
+          <div class="set-row"><span>Google<small>Gmail · Calendar · Drive · YouTube</small></span><span class="status">Not connected</span></div>
+          <div class="set-row"><span>Instagram</span><span class="status soon">Coming soon</span></div>
+          <div class="set-row"><span>Facebook</span><span class="status soon">Coming soon</span></div>
+        </section>
+
+        <section class="set-sec" aria-labelledby="setData">
+          <h3 id="setData">Data controls</h3>
+          <span class="flabel">What Sim Sim remembers</span>
+          <ul class="facts" id="setFacts"></ul>
+          <p class="mem-empty" id="setFactsEmpty" hidden>Nothing yet — tell me something worth remembering.</p>
+          <div class="set-row"><span>Download my data<small>One file: profile, notebook, learned memory, open loops, settings, Discussion picks and chat history.</small></span><a class="mini-btn" id="setExport" href="/api/data/export" download>Download</a></div>
+          <div class="set-row"><span>Forget everything<small>Erases your profile, notebook, learned memory, open loops, settings, Discussion picks and chat history. Saved logins stay until you delete them below. Pictures Sim Sim drew for you stay on the server.</small></span><button type="button" class="mini-btn danger-btn" id="setErase">Forget everything</button></div>
+          <div class="set-row"><span>Let my picks help improve Sim Sim for everyone<small>Off by default. This only saves your choice — nothing is shared today.</small></span><button type="button" class="switch" id="setConsent" role="switch" aria-checked="false"><i></i></button></div>
+          <p class="err" id="setErr" role="alert"></p>
+        </section>
+
+        <section class="set-sec" aria-labelledby="setVaultTitle">
+          <h3 id="setVaultTitle">Saved logins</h3>
+          <p class="set-note" id="vaultOff" hidden>Add VAULT_KEY to .env to turn on Saved logins</p>
+          <div id="vaultOn" hidden>
+            <form class="vault-add" id="vaultAdd" autocomplete="off">
+              <input id="vSite" type="text" maxlength="200" placeholder="Site or URL" aria-label="Site or URL">
+              <input id="vUser" type="text" maxlength="200" placeholder="Username" aria-label="Username" autocomplete="off">
+              <input id="vPass" type="password" maxlength="500" placeholder="Password" aria-label="Password" autocomplete="new-password">
+              <button class="btn-primary" type="submit">Save</button>
+            </form>
+            <p class="err" id="vaultErr" role="alert"></p>
+            <ul class="facts" id="vaultList"></ul>
+            <p class="mem-empty" id="vaultEmpty" hidden>No saved logins yet.</p>
+            <p class="set-note">Stored encrypted on the Sim Sim server. Sim Sim never reads these to answer you, never puts them in your notebook, and doesn't sign in for you.</p>
+          </div>
+        </section>
+
+        <section class="set-sec" aria-labelledby="setHelp">
+          <h3 id="setHelp">Help &amp; support</h3>
+          <div class="set-text">
+            <p><b>Call Sim Sim by name.</b> Keep Sim Sim open in Chrome with Listening ON. Say "Sim Sim", then ask — you'll hear a chime, or see "I'm here" when Speak answers is off. You can also press the orange mic, or just type.</p>
+            <p><b>Your notebook.</b> Sim Sim writes down what you tell it about your life — and the things you have to do, in Open loops — so it remembers next time. You can see, edit and delete everything it remembers in your Profile (click your name) or here under Data controls.</p>
+            <p><b>Where things are.</b> Settings is the gear at the bottom of the sidebar. Your basics and memory are in your Profile. Your past chats are in Chat history.</p>
+            <p>Listening works while Sim Sim is open in Chrome.</p>
+            <p>Sim Sim hears you through Chrome's built-in voice typing. To turn your voice into words, Chrome sends it to Google's speech service — that's how the free built-in tool works, and it happens whether or not you say the name. Words without your assistant's name never reach Sim Sim's server or its brain, and Sim Sim never saves them — but they do pass through Google first. Want the mic off except when you choose? Turn Listening off and type instead — or use push-to-talk, where the mic only runs while you hold the button (it uses the same Google service while it runs).</p>
+          </div>
+        </section>
+
+        <section class="set-sec" aria-labelledby="setLegal">
+          <h3 id="setLegal">Legal</h3>
+          <details class="set-text"><summary>Terms</summary>
+            <p>Sim Sim is an early prototype, built by Hassan Ali for the Meta AI developer hackathon. It can be wrong.</p>
+            <p>For anything that matters — law, money, health, deadlines — check the official source. Sim Sim shows its source for precise answers, and says so when it has none.</p>
+            <p>Sim Sim is not for emergencies, and it is not a lawyer, doctor or financial adviser. Use it for your own personal, lawful use.</p>
+          </details>
+          <details class="set-text"><summary>Privacy</summary>
+            <p><b>What is stored, and where.</b> Your profile, your notebook (what Sim Sim learned about you), open loops, settings, chat history, morning briefing, Discussion picks, pictures you asked Sim Sim to draw, and saved logins. All of it is stored on this Sim Sim server, kept separately for each account. Pictures you show Sim Sim and screen snapshots are not saved.</p>
+            <p><b>The brain.</b> Sim Sim's thinking is done by Meta's Model API. To answer, draw pictures and find official web pages, Sim Sim sends your message, and the parts of your notebook it needs, to Meta.</p>
+            <p><b>Listening.</b> Chrome's built-in speech recognition handles the mic first: Chrome sends what the mic hears to Google's speech service to turn it into words. Words without your assistant's name never reach Sim Sim's server or its brain.</p>
+            <p><b>Sign-in</b> uses Google Firebase, which sees your email address.</p>
+            <p><b>Saved logins</b> are encrypted on the server. They are never sent to the brain, never go into your notebook, and are not in your data download.</p>
+            <p><b>Nothing is sold.</b> There are no ads.</p>
+            <p><b>Your control.</b> Download all your data, or erase it with Forget everything, under Data controls. Saved logins are deleted one by one under Saved logins.</p>
+          </details>
+        </section>
+      </div>
+    </section>
+
+    <section class="gview" id="groupView" hidden aria-label="Discussion">
+      <div class="team-head" id="teamRow">
+        <div class="team-members" id="teamMembers"></div>
+        <p class="team-counts" id="teamCounts"></p>
+      </div>
+      <div class="gthread" id="gthread">
+        <div class="gcol" id="gcol">
+          <p class="gprivacy" id="gPrivacy">Your picks teach your team your taste. They're saved privately — just yours, never shared.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="pview" id="briefView" hidden aria-labelledby="briefHello">
+      <div class="pview-in">
+        <div class="brief-head">
+          <h2 id="briefHello">Good morning</h2>
+          <p class="brief-date" id="briefDate"></p>
+        </div>
+        <div class="brief-actions">
+          <button class="btn-primary" id="briefRead" type="button" aria-pressed="false">Read it to me</button>
+          <button class="ghost-btn" id="briefRefresh" type="button">Refresh</button>
+        </div>
+        <p class="brief-wait" id="briefWait" hidden>Preparing today's briefing…</p>
+        <p class="err" id="briefErr" role="alert"></p>
+        <div class="brief-text" id="briefText" aria-live="polite"></div>
+        <div class="brief-items" id="briefItems"></div>
+      </div>
+    </section>
+
+    <section class="pview" id="historyView" hidden aria-labelledby="historyTitle">
+      <div class="pview-in">
+        <h2 id="historyTitle">Chat history</h2>
+        <p class="err" id="historyErr" role="alert"></p>
+        <ul class="chats" id="historyList"></ul>
+        <p class="mem-empty" id="historyEmpty" hidden>No saved chats yet. Start talking, and your chats will be saved here.</p>
+      </div>
+    </section>
+
+    <section class="pview" id="loopsView" hidden aria-labelledby="loopsTitle">
+      <div class="pview-in">
+        <h2 id="loopsTitle">Open loops</h2>
+        <form class="loop-add" id="loopAdd" autocomplete="off">
+          <input id="loopText" type="text" maxlength="200" placeholder="Something you have to do" aria-label="New loop">
+          <input id="loopDate" type="date" aria-label="Due date (optional)">
+          <button class="btn-primary" type="submit">+ Add</button>
+        </form>
+        <p class="err" id="loopErr" role="alert"></p>
+        <ul class="loops" id="loopList"></ul>
+        <p class="mem-empty" id="loopEmpty" hidden>Nothing open. When you tell me something you have to do, I'll keep it here until you say it's done.</p>
+        <details class="closed-box" id="closedBox" hidden>
+          <summary>Closed (<span id="closedCount">0</span>)</summary>
+          <ul class="loops" id="closedList"></ul>
+        </details>
+      </div>
+    </section>
+
+    <footer class="composer" id="composer">
+      <div class="attach-preview" id="attachPreview" hidden>
+        <img id="attachThumb" alt="">
+        <span id="attachName"></span>
+        <button type="button" class="attach-x" id="attachRemove" aria-label="Remove the picture">×</button>
+      </div>
+      <p class="attach-err" id="attachErr" role="alert" hidden></p>
+      <form class="cbox" id="form" autocomplete="off">
+        <button class="round attach" id="attach" type="button" aria-label="Show Sim Sim a picture" title="Show Sim Sim a picture">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-9 9"/></svg></button>
+        <input id="attachFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <button class="round attach" id="watchBtn" type="button" aria-label="Watch my screen" title="Watch my screen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><circle cx="12" cy="10" r="2.2"/></svg></button>
+        <textarea id="input" rows="1" placeholder="Talk or type to Sim Sim…" aria-label="Message" maxlength="4000"></textarea>
+        <button class="round mic" id="mic" type="button" aria-label="Talk" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <button class="round send" id="send" type="submit" aria-label="Send">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </form>
+      <p class="cap" id="cap" aria-live="polite"></p>
+    </footer>
+  </main>
+
+</div>
+<!-- ===== Screen Watch (see-only: Sim Sim never clicks or types) ===== -->
+<div class="screen-panel" id="screenPanel" hidden role="dialog" aria-label="Sim Sim is watching your screen">
+  <div class="sp-head" id="spHead" title="Drag to move">
+    <span class="sp-live" aria-hidden="true"></span><b>Watching your screen</b>
+    <button type="button" class="mini-btn" id="spFloat" hidden title="Float this panel above your other apps">Float</button>
+    <button type="button" class="mini-btn" id="spStop">Stop</button>
+  </div>
+  <p class="sp-truth">Sim Sim can see your screen, but it can't click or type — you stay the hands.</p>
+  <p class="sp-help">Keep this tab open while I watch — closing Chrome ends the watch.</p>
+  <div class="sp-thread" id="spThread" aria-live="polite"></div>
+  <form class="sp-form" id="spForm" autocomplete="off">
+    <textarea id="spInput" rows="1" maxlength="2000" placeholder="Ask about your screen…" aria-label="Ask about your screen"></textarea>
+    <button type="button" class="mini-btn" id="spLook" title="Take a fresh look at your screen">Look</button>
+    <button type="submit" class="mini-btn on">Send</button>
+  </form>
+</div>
+<button type="button" class="freeze-btn" id="freezeBtn" hidden aria-label="Hold to freeze your screen and circle something"><span class="avatar">S</span></button>
+<div class="freeze-layer" id="freezeLayer" hidden>
+  <div class="fl-bar">
+    <span>Frozen — circle the part you mean, then ask (type in the mini chat, or say it).</span>
+    <button type="button" class="mini-btn" id="flClear">Clear circle</button>
+    <button type="button" class="mini-btn on" id="flClose">Unfreeze ✕</button>
+  </div>
+  <canvas id="flCanvas"></canvas>
+</div>
+<video id="screenVideo" muted playsinline></video>
+
+<script src="notebook-data.js"></script>
+<script src="image-intent.js"></script>
+<script src="app.js"></script>
+<script src="setup.js"></script>
+<script src="wake.js"></script>
+<script src="memory.js"></script>
+<script src="loops.js"></script>
+<script src="history.js"></script>
+<script src="briefing.js"></script>
+<script src="group.js"></script>
+<script src="settings.js"></script>
+<script src="screen.js"></script>
+<script type="module" src="auth.js"></script>
+</body>
+</html>

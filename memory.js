@@ -2,6 +2,8 @@
 // The brain forgets between calls; the notebook file IS the memory.
 // Learning uses the same Meta brain (one small extraction call); everything here is plain code.
 const crypto = require('crypto');
+const { THEMES } = require('./public/notebook-data.js');
+const voiceMod = require('./voice.js');
 
 const CATEGORIES = ['people', 'dates', 'places', 'preferences', 'possessions', 'plans'];
 const MAX_FACTS_IN_CONTEXT = 100;
@@ -27,6 +29,15 @@ function newestFirst(facts) {
   return [...facts].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
 }
 
+// The identity card: the closing section of about.md (Sim Sim's own document, written by the founder).
+const IDENTITY_CARD = (() => {
+  try {
+    const doc = require('fs').readFileSync(require('path').join(__dirname, 'about.md'), 'utf8');
+    const m = doc.match(/## THE IDENTITY CARD[^\n]*\n+([\s\S]+?)\s*$/);
+    return m ? m[1].trim() : '';
+  } catch (e) { return ''; }
+})();
+
 // ---- Who Sim Sim is (answered directly — never sent to a source check) ----
 // forBot: a Discussion helper bot reads this as "the app you are part of", not as its own name.
 function identityLines(forBot) {
@@ -34,13 +45,78 @@ function identityLines(forBot) {
     forBot ? 'ABOUT SIM SIM, the assistant whose team you are on (answer questions about it from this):'
       : 'ABOUT YOU (answer questions about yourself directly from this):',
     (forBot ? '- Sim Sim is' : '- You are Sim Sim,') + ' a personal AI assistant. Its founder is Hassan Ali — he created Sim Sim. It is an early prototype built for the Meta AI developer hackathon.',
-    '- Sim Sim runs on Meta\'s Muse model. Its name is fixed; the user calls it by saying "Sim Sim".',
+    '- Sim Sim\'s thinking runs on Meta\'s Muse models through the Meta Model API (its brain is Muse Wonder). Its name is fixed; the user calls it by saying "Sim Sim".',
     '- What you can do: talk and listen (wake by name, speak answers), remember the user\'s life in their notebook, keep their open loops (tasks) until',
     '  they say they are done, give a morning briefing, check high-stakes facts against official sources and cite them, run a Discussion where the',
-    '  user\'s team of three (you plus two helper bots) answers and the user picks the best, draw pictures, look at pictures and at a shared screen',
+    '  user\'s team of three (you plus two helper bots) answers and the user picks the best, draw pictures, edit a photo the user gives you, look at pictures and at a shared screen',
     '  (you can see, never click or type), and keep saved logins encrypted.',
-    '- You have no awards, history or news beyond this. If asked about something you have no record of, say so plainly.'
-  ].join('\n');
+    '- You have no awards, history or news beyond this. If asked about something you have no record of, say so plainly.',
+    // The honesty line (founder, 2026-10-28): never invent facts about Sim Sim's own abilities or limits.
+    '- Never invent a limit on what ' + (forBot ? 'Sim Sim' : 'you') + ' can do: never say pictures can\'t be made or shown here, that this chat',
+    '  can\'t send pictures, or that being an early prototype stops something. Never invent a failure either.',
+    '- Pictures: a separate drawing step makes a picture when the user\'s message asks for one, like "make a picture of a husky". A drawn',
+    '  picture shows in the chat, and the conversation marks it "[Sim Sim drew a picture of …]". You, writing words, cannot draw: never say',
+    '  you are drawing or making a picture now, or that one will appear, and don\'t offer to make one. If the user seems to want a picture,',
+    '  tell them to ask in one message, for example "make a picture of a cat". Say a picture didn\'t work only if the conversation shows it failed.',
+    '- Photo edits: a separate editing step changes a picture when the user attaches a photo (or one is already in this chat) and says the',
+    '  change, like "add a dog here" or "make it real". An edited picture shows in the chat, marked "[Sim Sim edited the picture …]". You, writing',
+    '  words, cannot change a picture: never say you added, removed or changed anything in one, and never describe the changed scene as if it',
+    '  were done ("just you on the couch now") — only a reply marked "[Sim Sim edited the picture …]" changed anything. If a change request',
+    '  reaches you in words, say plainly it hasn\'t been edited and ask them to say the change as one instruction, like "remove the kid". Never',
+    '  ask them to attach again a photo they already shared in this chat, and never lecture about what you can or can\'t do.',
+    '- Never state how long an answer took or list the steps you took: you don\'t know them. The "How I answered" line under each answer',
+    '  shows the measured time and the real steps.'
+  ].concat(forBot ? [] : [
+    // founder, 2026-10-30: the identity card from about.md (Sim Sim's own document), word for word
+    ...(IDENTITY_CARD ? ['- Your identity card (how you describe yourself, in your own voice): ' + IDENTITY_CARD] : []),
+    // founder, 2026-10-30: voice notes reach you as their transcript; with none, never guess what was said
+    '- Voice notes: a user message marked "[voice note]" is the transcript of a voice note they recorded. The message',
+    '  "[voice note — no transcript]" means you could not make out the words: say so plainly and ask them to try again or type it —',
+    '  never guess or invent what the note said.',
+    // founder, 2026-10-30: the Document Lane makes real PDF files; the "copy it and save it as a PDF yourself" dodge is banned
+    '- Files: the app makes real PDF files when the user asks for one in a message (for example "make a PDF of …"). Never tell the user to',
+    '  copy text and save it as a PDF or a file themselves. If a file was asked for and none was made, say plainly that no file was made',
+    '  and suggest asking "make a PDF of …".',
+    // founder, 2026-10-31: the Website Lane — a real, working page, never a substitute
+    '- Websites: when the user asks you to make a website or a page (for example "make a website for my coffee shop"), the app writes a',
+    '  real, self-contained HTML page and shows it in a card with Open and Download — it opens, scrolls, and its buttons work. You, writing',
+    '  words, cannot build that page yourself: never describe a website as made, never paste HTML into the chat as if that were the site,',
+    '  and never offer a picture or a PDF instead — those are not a website. If the page could not be made, say so plainly and suggest asking',
+    '  again, for example "make a website for …". A plain request for HTML/CSS/JS code to look at (not a working page) is answered in a code block, as normal.',
+    // founder, 2026-10-29: a pretend rename ("I can call it Rasputin with you") is not a rename
+    '- Renaming this chat is handled by the app when the user asks in one message, like "name it Rasputin" or "rename this chat to Trip plans".',
+    '  Never say the chat can\'t be renamed, and never offer a pretend rename ("I\'ll call it that with you"). If they want a new name but',
+    '  didn\'t give one, ask what to call it and tell them to say "name it …".',
+    // founder, 2026-10-31: the Action Layer — Sim Sim has hands in its own app, under the user's Permissions
+    '- You CAN act in this app when the user asks, under their Permissions (Settings → Permissions: Allow / Ask me / Never per group):',
+    '  make, open, rename or delete chats and side chats; open Discussion, the briefing, Open loops, Your pictures, the Browser, Settings or',
+    '  Profile; change the theme, text size or a starter face; turn Speak answers on/off or change the voice (if it is set up); add or',
+    '  finish open loops; forget a fact. Deleting a chat and forgetting a fact always ask first on a card in the chat.',
+    '  The sentence family "I only reply inside this chat", "I don\'t have the controls", "I can\'t make a side chat from here", "use the' +
+    ' button and tell me there", or "start it from the list and tell me there" is BANNED — with hands, it is false.',
+    '  A question about what you can do is answered in words. Never claim an action happened unless the app confirmed it.'
+  ]).join('\n');
+}
+
+// ---- Sim Sim's own setup, live (founder, 2026-10-31): built FRESH every turn from the stores that already exist —
+// never written into about.md, never learned as a notebook "fact". Only for Sim Sim's own system prompt (never a bot's).
+function setupBlock(profile, settings) {
+  const defaultNames = ['Researcher', 'Challenger'];
+  const names = profile && Array.isArray(profile.botNames) && profile.botNames.length === 2 && profile.botNames[0] && profile.botNames[1]
+    ? profile.botNames : defaultNames;
+  const themeNames = THEMES.map(t => t.name).join(', ');
+  const currentTheme = (profile && THEMES.find(t => t.id === profile.themeId) || THEMES[0]).name;
+  const st = settings || {};
+  const voiceKey = voiceMod.NAMES.includes(st.voice) ? st.voice : voiceMod.DEFAULT_VOICE;
+  const roster = voiceMod.ROSTER.find(v => v.name === voiceKey);
+  const voiceLabel = roster ? (roster.label || roster.name) : voiceKey;
+  const speakState = st.speakAnswers === false ? 'off' : 'on';
+  return '\n\nYOUR OWN SETUP (questions about your team, your themes or your voice are answered FROM THIS — never guessed, and' +
+    ' never answered by sending the user to go look in Settings for a fact that is right here; a value genuinely missing from' +
+    ' this block is said plainly, never invented):' +
+    '\n- THE TEAM: Your team on the Discussion page: you (Sim Sim) plus two helper bots the user named: ' + names[0] + ' and ' + names[1] + '.' +
+    "\n- THE DESIGN: Your app's design themes: " + themeNames + ". The user's current theme: " + currentTheme + '.' +
+    "\n- THE VOICE: Your voice: the user's chosen voice is '" + voiceLabel + "' (Settings → Voice). Speak answers is currently " + speakState + '.';
 }
 
 // How Sim Sim answers (founder, 2026-10-27): like Muse — answer first, verify what matters, never invent.
@@ -49,17 +125,34 @@ const ANSWER_RULES = '\n\nHow you answer:' +
   '\n- Say how sure you are when it matters ("I\'m not certain, but…"). If you truly don\'t know, say so in your own words and offer a next step.' +
   '\n- For high-stakes specifics you can\'t check right now — an exact law, fee, deadline, dose or official number — don\'t invent the figure:' +
   ' give what you know, say plainly that the exact detail should be verified, and say where to check.' +
+  '\n- Exception: the current date, day, or time is NOT one of those unverifiable specifics — it is given to you directly, below ("Right now' +
+  ' for the user: ..."). Answer it straight from that line, stated as plain fact. Never say you can\'t verify it, never hedge, never say you' +
+  ' would need to search for it.' +
   '\n- If asked about something you have no record of (a made-up event, award, person or rule), don\'t play along — say plainly you have no record of it.' +
   '\n- If the message is one word or unclear, reply naturally or ask one short clarifying question.';
 
+// The current moment, in the user's own timezone when the page reported one (founder, 2026-10-31 — the brain had the
+// date but never the clock). Rebuilt fresh on every call: never cached, never stored, never learned as a notebook
+// fact — it is a clock, not a fact. A bad or missing tz falls back to the server's own local time rather than fail.
+function nowLine(tz) {
+  const d = new Date();
+  let opts = {};
+  if (typeof tz === 'string' && tz.length < 100) {
+    try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); opts = { timeZone: tz }; } catch (e) {}
+  }
+  const dateStr = d.toLocaleDateString('en-US', Object.assign({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }, opts));
+  const timeStr = d.toLocaleTimeString('en-US', Object.assign({ hour: 'numeric', minute: '2-digit' }, opts));
+  return 'Right now for the user: ' + dateStr + ', ' + timeStr + '.';
+}
+
 // ---- What the brain reads before answering: profile basics + the notebook ----
 // who: optional first line for a Group Chat helper bot (the default is Sim Sim itself).
-function buildChatSystem(profile, facts, openLoops, who) {
+function buildChatSystem(profile, facts, openLoops, who, settings, tz) {
   const name = profile ? profile.callName : 'the user';
   let s = (who || 'You are Sim Sim, ' + name + "'s personal assistant.") + ' Answer in short, warm, plain sentences. Be helpful.';
   s += '\n\n' + identityLines(!!who) + ANSWER_RULES;
-  const d = new Date();
-  s += '\n\nToday is ' + d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + '.';
+  if (!who) s += setupBlock(profile, settings);   // Sim Sim's own setup — never for a Discussion bot's system prompt
+  s += '\n\n' + nowLine(tz);
   if (profile) {
     s += '\n\nProfile basics: name ' + name + ' · gender: ' + profile.gender + ' · age: ' + profile.age + ' · lives in ' + profile.state + '.';
   }
@@ -162,6 +255,28 @@ function applyOps(book, ops) {
   return learned;
 }
 
+// ---- Language preference hygiene (founder, 2026-11-01) ----
+// Ending a language instruction, in the user's own words. Deliberately generous (a word that happens to match but
+// isn't a real language name is harmless — see isLanguagePreferenceFact below: nothing is ever deleted unless a
+// notebook fact actually reads as a language-reply preference, so a false match here is a safe no-op).
+const LANG_RESET = [
+  /^(?:(?:hey|ok|okay|please|sim\s*sim)[,\s]+)*(?:go\s+)?back\s+to\s+([a-z]+)[\s.!?]*$/i,          // "back to English"
+  /^(?:(?:hey|ok|okay|please|sim\s*sim)[,\s]+)*([a-z]+)\s+(?:now|please)[\s.!?]*$/i,                // "English now"
+  /^(?:(?:hey|ok|okay|please|sim\s*sim)[,\s]+)*stop\s+(?:speaking|replying\s+in|responding\s+in|talking\s+in)\s+([a-z]+)[\s.!?]*$/i,   // "stop speaking Spanish"
+  /^(?:(?:hey|ok|okay|please|sim\s*sim)[,\s]+)*(?:reply|respond|speak|talk)\s+(?:to\s+me\s+)?in\s+([a-z]+)\s+again[\s.!?]*$/i,          // "reply in English again"
+  /^(?:(?:hey|ok|okay|please|sim\s*sim)[,\s]+)*(?:switch|go)\s+back\s+to\s+([a-z]+)[\s.!?]*$/i
+];
+function isLanguageResetMessage(message) {
+  const t = String(message || '').trim();
+  return LANG_RESET.some(re => re.test(t));
+}
+// A notebook fact shaped like "replies/speaks/responds/talks ... in <language>" — the exact shape the extractor
+// already saves a language instruction as (confirmed live: "reply only in Spanish" became one of these).
+const LANG_FACT = /\b(?:repl(?:y|ies|ying|ied)|respon(?:d|ds|ding|ded)|speak(?:s|ing)?|spoken|talk(?:s|ing|ed)?|answer(?:s|ing|ed)?|communicat(?:e|es|ing|ed)|writ(?:e|es|ing|ten))\b[^.]{0,30}\b(?:in|with)\s+[A-Za-z]+/i;
+function isLanguagePreferenceFact(f) {
+  return f && f.category === 'preferences' && typeof f.text === 'string' && LANG_FACT.test(f.text);
+}
+
 // ---- Forgetting by voice or text ----
 const STOP = new Set(('a an the my his her their our your me i you it its that this these those about please of to for on in at is was are be ' +
   'and or what where when who how which do did does sim simsim thing things stuff just now again').split(' '));
@@ -203,5 +318,6 @@ function plain(text) {
 module.exports = {
   CATEGORIES, looksSecret, wordCount, newFactId, newestFirst,
   identityLines, buildChatSystem, buildExtractorMessages, parseOps, applyOps,
-  parseForget, matchFacts, plain
+  parseForget, matchFacts, plain, MAX_FACTS_IN_CONTEXT,
+  isLanguageResetMessage, isLanguagePreferenceFact
 };

@@ -63,7 +63,9 @@
     current = b;
     $('briefHello').textContent = b.greeting;
     $('briefDate').textContent = longDate(b.date);
-    $('briefText').textContent = b.text;
+    // Not ready yet (the real briefing-time setting, founder, 2026-11-01): never pushed, just not composed before
+    // the time the user set in Settings -> Briefing & loops — honest, calm wording, nothing to read aloud yet.
+    $('briefText').textContent = b.notReady ? 'Your morning briefing will be ready at ' + b.readyAt + '.' : b.text;
     const items = b.items || { loops: [], comingUp: [], remember: [] };
     const parts = [
       section('Your open loops', items.loops.map(l => [l.text, l.dueDate ? shortDate(l.dueDate) + ' · ' + l.due : 'no due date'])),
@@ -113,7 +115,7 @@
     row.classList.add('on'); row.setAttribute('aria-current', 'page');
     if (current) render(current);
     const b = await load(false);
-    if (b && !$('briefView').hidden && chat.speakOn()) read(false);   // Speak ON: read it once per open
+    if (b && !b.notReady && !$('briefView').hidden && chat.speakOn()) read(false);   // Speak ON: read it once per open
   }
   function hideView(restoreChat) {
     if ($('briefView').hidden) return;
@@ -132,4 +134,5 @@
   window.addEventListener('simsim:profileopen', () => hideView(false));
   window.addEventListener('simsim:showchat', () => hideView(true));
   window.addEventListener('simsim:signedout', () => { current = null; hideView(true); });
+  window.SimSimBriefing = { show: openView, isOpen: () => !$('briefView').hidden };
 })();

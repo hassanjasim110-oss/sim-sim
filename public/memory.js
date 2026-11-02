@@ -48,6 +48,7 @@
     try {
       const data = await post('/api/chat/learn', { turnId });
       if (data.learned && data.learned.length) { showChips(msgEl, data.learned); refreshIfOpen(); }
+      if (data.receiptSteps && data.receiptSteps.length && window.SimSimChat) window.SimSimChat.addReceiptSteps(msgEl, data.receiptSteps);
       if (data.loops && data.loops.length && window.SimSimLoops) {   // "Loop opened:" chips + the live badge
         window.SimSimLoops.showChips(msgEl, data.loops);
         window.dispatchEvent(new Event('simsim:loopschanged'));

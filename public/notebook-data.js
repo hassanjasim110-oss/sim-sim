@@ -54,7 +54,14 @@
       primary1: '#8c6430', primary2: '#6f4e24', onPrimary: '#ffffff' } }
   ];
 
-  const data = { GENDERS, STATES, BOT_ROLES, THEMES, DEFAULT_THEME: 'orange' };
+  // Sim Sim's face (founder, 2026-10-29): starter faces shipped in public/faces/<id>.svg. Only the FACE changes —
+  // the name "Sim Sim" is fixed and has no rename anywhere.
+  const FACES = [
+    { id: 'sunny', name: 'Sunny' }, { id: 'bolt', name: 'Bolt' }, { id: 'hoot', name: 'Hoot' },
+    { id: 'puff', name: 'Puff' }, { id: 'kit', name: 'Kit' }, { id: 'pip', name: 'Pip' }
+  ];
+
+  const data = { GENDERS, STATES, BOT_ROLES, THEMES, FACES, DEFAULT_THEME: 'orange' };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.SIMSIM_DATA = data;
 })(this);

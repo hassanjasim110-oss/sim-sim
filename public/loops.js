@@ -153,5 +153,5 @@
   window.addEventListener('simsim:loopschanged', refresh);
   window.addEventListener('simsim:signedout', () => { data = { today: '', open: [], closed: [] }; paintBadge(); hideView(true); });
 
-  window.SimSimLoops = { showChips, refresh };
+  window.SimSimLoops = { showChips, refresh, show: openView, isOpen: () => !$('loopsView').hidden };
 })();

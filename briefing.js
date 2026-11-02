@@ -52,16 +52,18 @@ function gather(book, today) {
   const shown = new Set(comingUp.map(c => c.id));
   // REMEMBER: up to 3, most recently learned or updated; dated facts belong to COMING UP (only when they are near)
   const remember = memory.newestFirst(facts).filter(f => f.category !== 'dates' && !shown.has(f.id)).slice(0, 3).map(f => ({ id: f.id, text: f.text }));
-  return { loops: openLoops, comingUp: comingUp.map(({ id, ...rest }) => rest), remember: remember.map(r => ({ text: r.text })) };
+  return { loops: openLoops, comingUp: comingUp.map(({ id, ...rest }) => rest), remember: remember.map(r => ({ text: r.text })),
+    reminders: (book.reminders || []).map(r => ({ text: r.text, when: r.when })) };   // timed reminders due today (set by server.js)
 }
-function isEmpty(items) { return !items.loops.length && !items.comingUp.length && !items.remember.length; }
+function isEmpty(items) { return !items.loops.length && !items.comingUp.length && !items.remember.length && !(items.reminders || []).length; }
 
 // ---- ONE brain call writes the words, from the handed items only ----
 const RULES = [
   "You write Sim Sim's short spoken morning briefing. Reply with the briefing text only: plain sentences, no headings, no lists, no markdown.",
   'Use ONLY the items given to you. Never add weather, news, traffic, holidays, events, people, names, dates, numbers or tasks that are not in the items.',
   'Never change a date, a name or a due fact. Use the due wording exactly as given ("due today", "due tomorrow", "2 days overdue").',
-  'Shape: greet the user by name first, then roughly one or two short sentences per section, in this order: open loops, coming up, remember.',
+  'Shape: greet the user by name first, then roughly one or two short sentences per section, in this order: reminders, open loops, coming up, remember.',
+  'Reminders: say each reminder with its time exactly as given ("today at 7:00 PM", "due now").',
   'Skip any section that has no items. Mention due-today and overdue loops gently and early — calm and kind, never alarming, never scolding.',
   'Warm, plain, comfy sentences, like a friend reading out a note. Turn the items into natural speech ("your cat is called Mango",',
   '"paying the water bill is 2 days overdue"), but keep every name, date and due wording exactly. Begin with "Good morning, <name>".'
@@ -71,6 +73,7 @@ async function compose(ask, name, todayLabel, items) {
   const payload = {
     user_name: name,
     today: todayLabel,
+    reminders: (items.reminders || []).map(r => ({ reminder: r.text, when: r.when })),
     open_loops: items.loops.map(l => (l.due ? { task: l.text, due: l.due } : { task: l.text, due: 'no due date' })),
     coming_up: items.comingUp.map(c => ({ fact: c.text, when: c.when })),
     remember: items.remember.map(r => r.text)
@@ -86,10 +89,21 @@ async function compose(ask, name, todayLabel, items) {
 
 // ---- Today's briefing: from the day-cache, or freshly made (and cached, stamped with the user's date) ----
 // Returns { date, text, items, fresh }. key = '' means the stub (nothing is composed or cached).
-async function todays({ book, today, todayLabel, key, ask, force }) {
+// briefingTime ("HH:MM") + now (a Date): the real briefing-time setting (founder, 2026-11-01) — before that time of
+// day, the briefing isn't composed yet ("ready" is honest: never pushed, just not made before its set time). Passing
+// force (the Refresh button) always composes now, regardless of the time — an explicit ask overrides the clock.
+async function todays({ book, today, todayLabel, key, ask, force, briefingTime, now }) {
   const name = book.profile ? book.profile.callName : 'there';
   if (!key) return { date: today, text: 'Meta brain not connected yet.', items: gather(book, today), fresh: false, stub: true };
   if (!force && book.briefing && book.briefing.date === today) return { date: today, text: book.briefing.text, items: book.briefing.items, fresh: false };
+  if (!force && briefingTime && now instanceof Date) {
+    const [h, m] = briefingTime.split(':').map(Number);
+    const ready = new Date(now); ready.setHours(h, m, 0, 0);
+    if (now < ready) {
+      return { date: today, text: '', notReady: true, readyAt: ready.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        items: gather(book, today), fresh: false };
+    }
+  }
   const items = gather(book, today);
   const text = isEmpty(items)
     ? 'Good morning, ' + name + '. ' + EMPTY   // a brand-new account: no brain call, nothing that could be invented

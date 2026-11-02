@@ -103,6 +103,7 @@
     $('setup').hidden = name !== 'setup';
     $('app').hidden = name !== 'app';
     if (name !== 'landing') $('landing').hidden = true;
+    $('loadingScreen').hidden = true;   // first load is over — no more blank-white gap to cover
     window.scrollTo(0, 0);
   }
   function showPage(n) {
@@ -199,11 +200,14 @@
   function applyProfile(p) {
     applyTheme(p.themeId);
     $('whoName').textContent = p.callName;
-    const at = email.lastIndexOf('@') + 1; // let a long email wrap right after the @
-    $('whoEmail').replaceChildren(email.slice(0, at), document.createElement('wbr'), email.slice(at));
+    // One line, ellipsis-truncated (founder, 2026-11-01) — the old <wbr> after "@" was a DIFFERENT fix (a controlled
+    // wrap point) that's exactly what made it wrap onto two lines; the CSS now truncates instead, so the full
+    // address goes in as plain text and the title attribute still gives the full address on hover.
+    $('whoEmail').textContent = email;
     $('whoEmail').title = email;
     $('meInitial').textContent = p.callName.charAt(0).toUpperCase();
     $('emptyTitle').textContent = 'Hi ' + p.callName;
+    window.SimSimFace.apply(p);   // Sim Sim's face, everywhere at once (the name never changes)
     renderBasics();
   }
 
@@ -250,7 +254,7 @@
     let r = null;
     try { r = await fetch('/api/profile', { cache: 'no-store' }); } catch (e) {}
     if (r && r.status === 401) { window.dispatchEvent(new Event('simsim:needsignin')); return; }
-    if (r && r.status === 404) { profile = null; showSetup(false); return; }
+    if (r && r.status === 404) { profile = null; window.SimSimFace.apply(null); showSetup(false); return; }
     const data = r && r.ok ? await r.json().catch(() => null) : null;
     profile = data && data.profile;
     if (profile) applyProfile(profile); // theme + names are set BEFORE the app is shown
@@ -268,6 +272,7 @@
     $('whoEmail').textContent = '';
     $('emptyTitle').textContent = 'Hi there';
     applyTheme(DEFAULT_THEME);
+    window.SimSimFace.apply(null);   // signed out: the default mark, never the last user's face
   });
 
   window.SimSimSetup = {
@@ -278,6 +283,10 @@
     showChat: () => {
       if (!$('profileView').hidden) closeProfileView();
       window.dispatchEvent(new Event('simsim:showchat')); // other views (Open loops) step aside too
-    }
+    },
+    // A reliable, idempotent open for the Action Layer (founder, 2026-11-01): never a toggle, and a no-op before the
+    // profile has loaded (same guard the sidebar's own Profile button uses).
+    openProfile: () => { if (profile) openProfileView(); },
+    isProfileOpen: () => !$('profileView').hidden
   };
 })();

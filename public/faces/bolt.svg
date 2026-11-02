@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Bolt">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fd3c2"/><stop offset="1" stop-color="#1f8f86"/></linearGradient></defs>
+  <rect width="64" height="64" fill="url(#g)"/>
+  <path d="M32 15v-5" stroke="#f4fbfa" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="8.5" r="3.6" fill="#ffc94a"/>
+  <rect x="13" y="16" width="38" height="34" rx="11" fill="#f4fbfa"/>
+  <rect x="9" y="27" width="5" height="11" rx="2.5" fill="#d7efec"/>
+  <rect x="50" y="27" width="5" height="11" rx="2.5" fill="#d7efec"/>
+  <rect x="20" y="25" width="9" height="9" rx="3" fill="#163f3b"/>
+  <rect x="35" y="25" width="9" height="9" rx="3" fill="#163f3b"/>
+  <circle cx="26.5" cy="27.5" r="1.4" fill="#7ff0e0"/>
+  <circle cx="41.5" cy="27.5" r="1.4" fill="#7ff0e0"/>
+  <path d="M25 41c3.5 3 10.5 3 14 0" fill="none" stroke="#163f3b" stroke-width="3" stroke-linecap="round"/>
+</svg>

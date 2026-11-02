@@ -113,25 +113,22 @@
     head.innerHTML = '<b></b> <small></small><span class="pick-badge" hidden>Your pick</span>';
     head.querySelector('b').textContent = nameOf(m);
     head.querySelector('small').textContent = '· ' + ROLE[m];
-    const fold = document.createElement('button');
-    fold.type = 'button';
-    fold.className = 'fold-line';
-    fold.hidden = true;
     const txt = document.createElement('div');
     txt.className = 'txt';
     txt.innerHTML = '<span class="typing" aria-hidden="true"><span></span><span></span><span></span></span><small class="typing-who"></small>';
     txt.querySelector('.typing-who').textContent = nameOf(m) + ' is typing…';
-    const pick = document.createElement('button');
-    pick.type = 'button';
-    pick.className = 'mini-btn pick-btn';
-    pick.textContent = 'Pick this one';
-    pick.hidden = true;
-    body.append(head, fold, txt, pick);
+    body.append(head, txt);
     d.append(avatar(m), body);
     return d;
   }
 
-  async function ask(text) {
+  // quote: { who, text } — the message this question replies to (Reply; shown only, never sent to the team)
+  async function ask(text, quote) {
+    // A verbal pick ("I pick Mila") runs the SAME path as the quiet Pick control — never asked to the team as if
+    // it were a new question (that was the bug: all three bots answering "I pick Mila" conversationally while
+    // nothing was actually recorded). No match (wrong name, or no pickable round) falls through to a normal ask.
+    const vp = verbalPick(text);
+    if (vp) { pickIt(vp.turn, vp.member); return; }
     if (busy) return;
     busy = true;
     turns.forEach(flush);   // an earlier round still revealing: show the rest of it now — never make him wait for theatre
@@ -139,12 +136,10 @@
     turns.forEach(t => { t.locked = true; paintTurn(t); });
     $('gPrivacy').hidden = true;
     const qid = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
-    const turn = { qid, cards: {}, answers: {}, pick: null, locked: false, expanded: new Set(), revealing: true, flushing: false, wake: null, speakAfter: null };
+    // pickable: the server's call on this round — a real question gets "Pick this one"; small talk is plain conversation
+    const turn = { qid, cards: {}, answers: {}, pick: null, locked: false, pickable: false, revealing: true, flushing: false, wake: null, speakAfter: null };
     turns.push(turn);
-    const you = document.createElement('div');
-    you.className = 'user';
-    you.textContent = text;
-    $('gcol').append(you);
+    question(text, quote);
     MEMBERS.forEach(m => { turn.cards[m] = memberCard(m); });
     const asked = Date.now();
     chat.setPill('Thinking', 'busy');
@@ -187,15 +182,52 @@
     MEMBERS.forEach(m => { if (!turn.cards[m].isConnected) $('gcol').append(turn.cards[m]); });
     if (turn.wake) turn.wake();
   }
-  // One answer lands: its words, its sources, and its "Pick this one" button.
-  function land(turn, m, r) {
+  // The user's question bubble (with its Reply quote, if any).
+  function question(text, quote) {
+    const you = document.createElement('div');
+    you.className = 'user';
+    if (quote) you.append(chat.quoteBlock(quote));
+    you.append(document.createTextNode(text));
+    $('gcol').append(you);
+    if (window.SimSimReact) window.SimSimReact.attach(you, { who: 'You', text: () => text, onReply: chat.startReply });
+  }
+
+  // After a page reload: this session's rounds come back from the server exactly as they were — every answer
+  // (unpicked ones faded), the pick and the reactions. Nothing is spoken and nothing is re-asked.
+  async function restore() {
+    if (turns.length) return;
+    let rounds;
+    try { rounds = (await (await fetch('/api/group/rounds', { cache: 'no-store' })).json()).rounds; } catch (e) { return; }
+    if (!Array.isArray(rounds) || !rounds.length || turns.length) return;
+    $('gPrivacy').hidden = true;
+    rounds.forEach(rd => {
+      const turn = { qid: rd.qid, cards: {}, answers: {}, pick: rd.pick, locked: rd.locked, pickable: rd.pickable === true, revealing: false, flushing: false, wake: null, speakAfter: null };
+      turns.push(turn);
+      question(rd.question);
+      rd.answers.forEach(a => {
+        turn.cards[a.member] = memberCard(a.member);
+        $('gcol').append(turn.cards[a.member]);
+        land(turn, a.member, { d: { name: a.name, text: a.text, sources: a.sources, pickable: rd.pickable } }, (rd.reactions || {})[a.member]);
+      });
+    });
+    scrollDown();
+  }
+
+  // One answer lands: its words, its sources, and — on a pickable round only — its "Pick this one" button.
+  // reaction: the saved emoji (a reload); a fresh answer has none.
+  function land(turn, m, r, reaction) {
     const card = turn.cards[m], txt = card.querySelector('.txt');
     if (r.d) {
       turn.answers[m] = r.d;
+      if (r.d.pickable === true) turn.pickable = true;
       card.querySelector('.name b').textContent = r.d.name;
-      txt.textContent = r.d.text;
+      chat.renderRich(txt, r.d.text);   // code blocks with Copy buttons, lists, bold (same renderer as the 1-on-1 chat)
       if (r.d.sources && r.d.sources.length) chat.addCitation(card, r.d.sources);
-      card.querySelector('.pick-btn').onclick = () => pickIt(turn, m);
+      // a reaction is NOT a pick: it never touches the pick, the preference log or the taste counts
+      // The quiet Pick control (founder, 2026-11-01): same action row as React / Reply / More, same visual weight.
+      if (window.SimSimReact) window.SimSimReact.attach(card, { current: reaction || null, who: r.d.name, text: () => r.d.text, onReply: chat.startReply,
+        send: emoji => post('/api/group/react', { qid: turn.qid, member: m, emoji }),
+        pick: { active: turn.pickable && !turn.locked, picked: turn.pick === m, onPick: () => pickIt(turn, m) } });
     } else {
       card.classList.add('error');
       txt.textContent = r.e.message === 'signed out' ? '' : 'This answer could not come through.';
@@ -204,34 +236,49 @@
     scrollDown();
   }
 
-  // ---- Picking: switch freely until the next question; then it is locked ----
+  // ---- Picking: records right away (the counter, the main-chat write-back) — switch freely until the next
+  // question, then it is locked. The SAME path for the quiet Pick control and a verbal "I pick Mila" (below). ----
   async function pickIt(turn, m) {
-    if (turn.locked || turn.pick === m) return;
-    try { await post('/api/group/pick', { qid: turn.qid, member: m }); }
+    if (!turn.pickable || turn.locked || turn.pick === m) return;
+    let d;
+    try { d = await post('/api/group/pick', { qid: turn.qid, member: m }); }
     catch (e) { return; }
     turn.pick = m;
-    turn.expanded.clear();
+    if (d && d.taste) { const p = profile(); p.taste = d.taste; renderTeam(); }   // the counter moves now, not on the next question
     paintTurn(turn);
     chat.stopSpeaking();
     // Speak ON: only the PICKED answer is ever spoken — and never during the reveal (a pick then speaks when it ends)
     if (turn.revealing) turn.speakAfter = m;
     else chat.speak(turn.answers[m].text);
   }
+  // Founder's rule (2026-10-29): nothing disappears. The picked answer is full strength; the others stay, shown light.
+  // A round with no pick (none made, or small talk) fades nothing.
   function paintTurn(turn) {
     MEMBERS.forEach(m => {
       const card = turn.cards[m];
       if (!card) return;
-      const picked = turn.pick === m, folded = !!turn.pick && !picked && !turn.expanded.has(m);
+      const picked = turn.pick === m;
       card.classList.toggle('picked', picked);
-      card.classList.toggle('folded', folded);
+      card.classList.toggle('unpicked', !!turn.pick && !picked);
       card.querySelector('.pick-badge').hidden = !picked;
-      const fold = card.querySelector('.fold-line');
-      fold.hidden = !turn.pick || picked;
-      fold.textContent = folded ? 'Answer from ' + (turn.answers[m] ? turn.answers[m].name : nameOf(m)) + ' — not picked · tap to view' : 'Hide this answer';
-      fold.onclick = () => { if (turn.expanded.has(m)) turn.expanded.delete(m); else turn.expanded.add(m); paintTurn(turn); };
-      const btn = card.querySelector('.pick-btn');
-      btn.hidden = turn.locked || picked || !turn.answers[m];
+      if (turn.answers[m] && window.SimSimReact) {
+        window.SimSimReact.attach(card, { pick: { active: turn.pickable && !turn.locked, picked, onPick: () => pickIt(turn, m) } });
+      }
     });
+  }
+  // "I pick Mila", "I'll choose Sim Sim", "go with This" — the user's own current bot names, matched whole-word so
+  // "I pick this" (the pronoun) only matches when a bot is actually named "This" (founder's own test case).
+  // Runs the SAME pickIt() as the control: the same counter update, the same mark, the same main-chat write-back.
+  const PICK_VERB = /^(?:(?:i|i'll|i will|let'?s|lets)\s+)?(?:pick|choose|go with|go for|take|vote for)\s+(.+)$/i;
+  function verbalPick(text) {
+    const m = String(text || '').trim().replace(/[.!?]+$/, '').match(PICK_VERB);
+    if (!m) return null;
+    const said = m[1].trim().toLowerCase().replace(/\s+/g, '');
+    if (!said) return null;
+    const turn = [...turns].reverse().find(t => t.pickable && !t.locked && MEMBERS.some(mm => t.answers[mm]));
+    if (!turn) return null;
+    const target = MEMBERS.find(mm => nameOf(mm).toLowerCase().replace(/\s+/g, '') === said && turn.answers[mm]);
+    return target ? { turn, member: target } : null;
   }
 
   // The previous pick was locked on the server: show what it taught (chips) and the new counts.
@@ -256,7 +303,9 @@
     row.classList.add('on'); row.setAttribute('aria-current', 'page');
     renderTeam();
     $('gPrivacy').hidden = turns.length > 0;
+    restore();   // after a page reload: this session's rounds come back
     $('input').placeholder = 'Ask your team…';
+    chat.clearReply();           // a reply belongs to the chat it was started in
     $('attach').hidden = true;   // pictures and Screen Watch are for the 1-on-1 chat only
     $('watchBtn').hidden = true;
     $('attachRemove').click();
@@ -267,6 +316,7 @@
     $('groupView').hidden = true;
     row.classList.remove('on'); row.removeAttribute('aria-current');
     $('input').placeholder = 'Talk or type to Sim Sim…';
+    chat.clearReply();
     $('attach').hidden = false;
     $('watchBtn').hidden = false;
     if (restoreChat) {
@@ -287,5 +337,5 @@
     hideView(true);
   });
 
-  window.SimSimGroup = { ask, isOpen: () => !$('groupView').hidden };
+  window.SimSimGroup = { ask, isOpen: () => !$('groupView').hidden, show: openView };
 })();

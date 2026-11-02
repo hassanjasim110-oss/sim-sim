@@ -8,6 +8,22 @@ const EMAIL_KEY = 'simSimEmailForSignIn';
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const $ = id => document.getElementById(id);
 
+// The landing hero's video — the ONE place its source is set (founder, 2026-11-01). Empty by default: no <video>
+// element is ever created, so there is no dead player and no "Unable to play media" anywhere on the page. Set
+// this to a real file's URL to show it; it plays muted, looping, with its own first frame as the poster.
+const LANDING_VIDEO_URL = '';
+function buildHeroVideo() {
+  const slot = $('heroMedia');
+  if (!slot || !LANDING_VIDEO_URL) return;
+  const v = document.createElement('video');
+  v.src = LANDING_VIDEO_URL;
+  v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true;
+  v.setAttribute('aria-hidden', 'true');
+  slot.replaceChildren(v);
+  slot.hidden = false;
+}
+buildHeroVideo();
+
 let fb = null, auth = null;   // Firebase auth module + instance (null if it failed to load)
 let countdown = null;
 
@@ -56,6 +72,7 @@ function showLanding() {
   $('app').hidden = true;
   $('setup').hidden = true;
   $('landing').hidden = false;
+  $('loadingScreen').hidden = true;   // first load is over — no more blank-white gap to cover
   window.dispatchEvent(new Event('simsim:signedout'));
 }
 function showState(name) {
@@ -68,8 +85,8 @@ function showForm() {
   showState('form');
   $('emailErr').textContent = '';
 }
-function showError(code, signedInEmail) {
-  $('errText').textContent = friendly(code);
+function showError(code, signedInEmail, message) {
+  $('errText').textContent = message || friendly(code);
   $('errBtn').textContent = signedInEmail ? 'Go to Sim Sim' : 'Back to sign in';
   $('errBtn').onclick = () => {
     if (signedInEmail) showApp(signedInEmail);
@@ -154,14 +171,16 @@ async function finishSignIn(email) {
       body: JSON.stringify({ idToken })
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok || !data.ok) throw { code: 'server' };
+    // The preview lock (founder, 2026-10-31; only when PREVIEW_ONLY_EMAIL is set on a hosted copy) sends its own
+    // plain message — shown as-is, instead of the generic friendly() fallback. Any other failure is unchanged.
+    if (!r.ok || !data.ok) throw { code: 'server', message: data.error === 'This preview is private.' ? data.error : null };
     store(EMAIL_KEY, null);
     cleanUrl();
     showApp(data.email);
   } catch (x) {
     cleanUrl(); // a refresh must never re-run the link
     const s = await getSession();
-    showError(x && x.code, s.signedIn ? s.email : null);
+    showError(x && x.code, s.signedIn ? s.email : null, x && x.code === 'server' ? x.message : null);
   }
 }
 
@@ -183,8 +202,50 @@ async function signOutEverywhere() {
   showLanding();
   window.scrollTo(0, 0);
 }
-$('signOut').addEventListener('click', signOutEverywhere);
+// Switch email confirm (founder, 2026-11-01; narrowed 2026-11-01 — "Journeys pack"): ONLY the dev door's "Switch
+// email" still confirms first (a stray tap mid-test would otherwise lose whatever test session was in progress).
+// Log out — the real, everyday sign-out, however it's reached (the sidebar button or Settings) — is now ONE tap,
+// no confirm: ending a session is harmless (signing back in is just as easy), so a speed bump there was friction,
+// not safety. An automatic sign-out (the server saying "not signed in", or a flow that already confirmed its own
+// destructive step — "Forget everything") still skips this and calls signOutEverywhere directly.
+function confirmSignOut() {
+  if ($('signOutConfirm')) return;
+  const box = document.createElement('div');
+  box.id = 'signOutConfirm';
+  box.className = 'confirm-overlay';
+  const card = document.createElement('div');
+  card.className = 'confirm-card';
+  card.setAttribute('role', 'alertdialog');
+  card.setAttribute('aria-modal', 'true');
+  card.setAttribute('aria-labelledby', 'signOutConfirmMsg');
+  const msg = document.createElement('p');
+  msg.id = 'signOutConfirmMsg';
+  msg.textContent = "Switch email? You'll be signed out and can sign in with a different email.";
+  const row = document.createElement('div');
+  row.className = 'confirm-btns';
+  const yes = document.createElement('button');
+  yes.type = 'button'; yes.className = 'btn-primary'; yes.textContent = 'Switch email';
+  const no = document.createElement('button');
+  no.type = 'button'; no.className = 'textlink'; no.textContent = 'Cancel';
+  row.append(yes, no);
+  card.append(msg, row);
+  box.append(card);
+  document.body.append(box);
+  const close = () => { box.remove(); document.removeEventListener('keydown', onKey); };
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKey);
+  box.addEventListener('click', e => { if (e.target === box) close(); });
+  yes.addEventListener('click', () => { close(); signOutEverywhere(); });
+  no.addEventListener('click', close);
+  yes.focus();
+}
+// "Switch email" (dev door only) still confirms; "Log out" (everyone else) ends the session at once.
+$('signOut').addEventListener('click', () => {
+  if ($('signOut').textContent === 'Switch email') confirmSignOut();
+  else signOutEverywhere();
+});
 window.addEventListener('simsim:needsignin', signOutEverywhere);
+window.SimSimAuth = { signOutDirect: signOutEverywhere, confirmSignOut };
 
 // ---- Test mode (switched on ONLY by the server's .env; the page just reads what /api/session says) ----
 // A safety label that is never hidden, and no Sign out (there is no real session to end).
@@ -198,7 +259,6 @@ function markTestMode() {
 const DEV_EMAIL = /^[^\s@\/\\:*?"<>|]+@[^\s@\/\\:*?"<>|]+\.[^\s@\/\\:*?"<>|.]{2,}$/;
 function markDevDoor() {
   devDoor = true;
-  document.querySelectorAll('[data-dev-pill]').forEach(p => { p.hidden = false; });
   $('signOut').textContent = 'Switch email';
 }
 $('devForm').addEventListener('submit', async e => {

@@ -1,7 +1,8 @@
 // SIM SIM Screen Watch + Freeze & Ask. Sim Sim SEES the screen the user chooses to share — it never clicks or types.
 // Frames live only in this page's memory: one latest frame, overwritten every few seconds, gone when watching stops.
-// A frame reaches the brain ONLY through one of three doors: "Sim Sim, look at this" (voice), the Look button,
-// or a message typed in the mini chat — each sends ONE fresh snapshot through the same /api/chat picture path as Vision.
+// A frame reaches the brain ONLY through one of these doors: "Sim Sim, look at this" (voice), the Look button,
+// or a message sent in the mini chat (typed, or dictated with its mic) — each sends ONE snapshot, taken at the moment
+// it sends, through the same /api/chat picture path as Vision.
 // While watching, the mini chat floats in Chrome's Document Picture-in-Picture window (the SAME nodes are moved there);
 // without that API it stays as the in-page panel.
 (function () {
@@ -10,7 +11,7 @@
   // Direct handles to the panel's own nodes: they keep working when the nodes move into the floating window.
   const E = {
     panel: $('screenPanel'), head: $('spHead'), stop: $('spStop'), float: $('spFloat'), thread: $('spThread'),
-    form: $('spForm'), input: $('spInput'), look: $('spLook'),
+    form: $('spForm'), input: $('spInput'), look: $('spLook'), mic: $('spMic'), cap: $('spCap'),
     freezeBtn: $('freezeBtn'), layer: $('freezeLayer'), canvas: $('flCanvas'), clear: $('flClear'), close: $('flClose'),
     video: $('screenVideo'), watchBtn: $('watchBtn')
   };
@@ -68,6 +69,7 @@
     if (!(await popOut())) { E.float.hidden = !('documentPictureInPicture' in window); E.input.focus(); }
   }
   function stop() {
+    chat.capture.end('away', null, VOICE);   // a voice message in progress here is cancelled, never sent
     clearInterval(loop); loop = null;
     if (stream) stream.getTracks().forEach(t => t.stop());
     stream = null; grabber = null;
@@ -173,15 +175,22 @@
       scroll();
     }
   }
-  // Every message typed in the mini chat carries a FRESH snapshot.
+  // Every message sent from the mini chat — typed, or dictated with its mic — carries a snapshot taken AT THE MOMENT
+  // IT SENDS (ask() captures it then), so Sim Sim answers about the screen as it is now. Frozen: the circled frame.
   E.form.addEventListener('submit', e => {
     e.preventDefault();
     const text = E.input.value.trim();
-    if (!text) return;
+    if (!text || busy) return;   // an answer is still coming: the words stay in the box
+    chat.capture.end('sent', null, VOICE);
     E.input.value = '';
     fitInput();
     ask(text, true);
   });
+  // The mini chat's mic: the SAME voice capture as the main chat (app.js) — live words in this box, sent through the
+  // submit above after 3 seconds of quiet, cancelled by typing in it. No wake word needed: the user pressed it.
+  const VOICE = { input: E.input, form: E.form, fit: () => fitInput(), mic: E.mic, say: t => note(t) };
+  chat.voiceBox(VOICE);
+  if (E.mic.hidden) E.cap.textContent = "This browser can't listen — type your question here.";
   E.look.addEventListener('click', () => { const t = E.input.value.trim(); E.input.value = ''; fitInput(); ask(t, true); });
   // Voice while watching: "Sim Sim, look at this" (or anything while frozen) brings a snapshot; other commands are words only.
   function voice(text) { ask(text, frozen !== null || LOOK.test(text)); }

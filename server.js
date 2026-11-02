@@ -68,6 +68,35 @@ function subjectFrom(userMessage) {
 }
 // "a prompt", "a copy button", "in a code block", "copyable", "as text": the user wants words to copy, not a picture.
 const TEXT_DELIVERABLE = /\b(?:prompts?|copy ?button|code ?block|copyable|copy-?paste|in a (?:block|box)|as (?:plain )?text)\b/i;
+// Voice-change / voice-preference asks (founder's end-check round 2, 2026-11-02): "change your voice to a
+// different one" was round-1-fixed so it never became a PICTURE edit, but it still reached the Action Layer's
+// set_voice tool, which always failed (no voices are seeded) — and the brain filled the gap with the tool's own
+// error text (the full list of designed-voice labels), e.g. "Would you like Bright & Young, or another one from
+// the list?" This intercepts the whole family of asks in code, before actions.mightAct or any brain/tool call —
+// the ten designed voices must never be reachable from chat, in any wording. "voice note/command/memo/message" (an
+// existing recording, not Sim Sim's own voice) is stripped first so those never match.
+const VOICE_HONEST = "I speak with your device's voice — there's just the one for now. You can turn my speaking on or off in Settings → Voice.";
+const VOICE_NOISE = /\bvoice\s*(?:notes?|commands?|memos?|messages?|calls?|chats?)\b/gi;
+const VOICE_CHANGE_ASK = /\b(?:change|switch|pick|choose|set|get|try|use|want|have|another|different|new|list|options?|available)\b[^.?!]{0,20}\bvoices?\b|\bvoices?\b[^.?!]{0,20}\b(?:change|switch|different|another|new|list|options?|available)\b|\b(?:what|which)\b[^.?!]{0,15}\bvoices?\b|\bsounds? different\b/i;
+function voiceChangeAsk(text) {
+  return typeof text === 'string' && VOICE_CHANGE_ASK.test(text.replace(VOICE_NOISE, ''));
+}
+// A sane ceiling on the general Q&A lane (founder's end-check round 3, 2026-11-02): never an endless "Thinking…".
+const CHAT_CEILING_MS = 45000;
+const CHAT_STUCK_REPLY = 'That took too long — try again.';
+// Races a promise against a timer. Never rejects: { value } on a real resolve, { error } on a real rejection,
+// { timedOut: true } if the timer wins first — the original promise is left running, unobserved, afterward.
+function raceOrTimeout(promise, ms) {
+  return new Promise(resolve => {
+    const t = setTimeout(() => resolve({ timedOut: true }), ms);
+    promise.then(value => { clearTimeout(t); resolve({ value }); }, error => { clearTimeout(t); resolve({ error }); });
+  });
+}
+// "Delete all my chats": unambiguous phrasing ("all"/"every" + chats) is handled deterministically in code
+// (founder's end-check round 2, 2026-11-02) — live-tested, the brain was calling delete_current_chat instead of
+// delete_all_chats for this exact ask, so the card and the result were for the wrong (current) chat. Anything
+// less clear ("delete this chat", "delete my chat") still goes to the brain's own tool choice, unchanged.
+const DELETE_ALL_CHATS_ASK = /\b(?:delete|remove|erase|clear|wipe)\b[^.?!]{0,20}\b(?:all|every)\b[^.?!]{0,15}\bchats?\b/i;
 const RENAME_TOO_LONG ='A chat name can be up to 60 characters — try a shorter one.';
 // A rename ask with no name ("rename this chat"): asked in code, never sent to the brain — never a hang (founder, 2026-11-01).
 const RENAME_ASK = 'What should I call it?';
@@ -79,6 +108,13 @@ function renameNameReply(text) {
   const n = cleanName(text);
   if (!n || n.split(' ').length > 12 || RENAME_CANCEL.test(n)) return null;
   if (/^(?:what|why|how|when|where|who|whose|which|is|are|was|were|do|does|did|can|could|would|will|should)\b/i.test(n)) return null;
+  // A request or action ask ("make me a picture of…", "open Settings", "show me…", "tell me…") is never a chat
+  // name — it's the next thing the user actually wants, not an answer to "What should I call it?" (founder's
+  // end-check, 2026-11-01: a picture request got used as the new chat name). Anything already recognized
+  // elsewhere as a picture, edit, document, website or app-action request cancels the pending rename instead,
+  // so the message is handled normally.
+  if (/^(?:make|create|open|show|tell|draw|build|set|turn|change|delete|remove|add|remind|call|play|start|stop|pause|rename|forget|find|search|browse|write|send|help|give|let'?s|please)\b/i.test(n)) return null;
+  if (imageRequest(text) || editRequest(text) || documents.wantsDocument(text) || websites.wantsWebsite(text) || actions.mightAct(text)) return null;
   return n;
 }
 // Output cap for the small JSON steps (extractors). The model's hidden reasoning counts against it, so it needs room.
@@ -304,8 +340,19 @@ async function handleProfileSave(req, res) {
   book.profile && book.profile.face ? { face: book.profile.face } : {},       // and Sim Sim's face
   book.profile && book.profile.botFaces ? { botFaces: book.profile.botFaces } : {});   // and the two Discussion bots' faces
   if (!Array.isArray(book.facts)) book.facts = [];
+  // The latest Basics edit is the truth (founder's end-check, round 3, 2026-11-02): saving Basics retires any
+  // notebook fact that reads as a residence statement for a DIFFERENT state than the one just saved — not only
+  // when state itself changed. The demonstrated live bug had state as Idaho the whole time, with a "moved to
+  // Tennessee" fact that was never a prior Basics value, just a contradicting note that kept winning the answer.
+  // The prompt rule in memory.buildChatSystem is the other half, for whatever a false match here might miss.
+  {
+    const before = book.facts.length;
+    book.facts = book.facts.filter(f => !memory.isConflictingResidenceFact(f, profile.state, STATES));
+    if (book.facts.length !== before) console.log('[memory] retired a residence fact that conflicted with Basics state');
+  }
   all[s.uid] = book;
   writeNotebooks(all);
+  s.history = [];   // the next answer must come from the fresh profile/notebook, never an earlier turn in this chat
   sendJson(res, 200, { ok: true, profile: book.profile });
 }
 
@@ -771,6 +818,16 @@ async function handleChat(req, res) {
     if (b.facts.length !== before) writeNotebooks(all);
   }
 
+  // Voice-change / voice-preference asks: ONE honest line, in code, before anything else — never the picture
+  // lane (even with a picture attached this turn or already in the chat) and never the Action Layer's set_voice
+  // tool (round 2 end-check, 2026-11-02).
+  if (isMainChat(data) && !memory.looksSecret(message) && voiceChangeAsk(message)) {
+    s.pending = null;
+    rememberTurn(s, message, VOICE_HONEST);
+    return sendReply(res, s, data, message, null, { reply: VOICE_HONEST,
+      process: { command: "Answered about Sim Sim's voice with a fixed honest line (no brain call, no tool attempted)" } });
+  }
+
   // With a picture: a verb-led CHANGE instruction ("add a dog here") edits it; anything else — above all a question —
   // goes straight to the brain with the picture (Vision). When in doubt it is Vision: never change a photo on a guess.
   if (picture) {
@@ -851,6 +908,31 @@ async function handleChat(req, res) {
     rememberTurn(s, message, receipt.PROCESS_TEXT);
     return sendReply(res, s, data, message, null, { reply: receipt.PROCESS_TEXT,
       process: { command: "Answered from Sim Sim's fixed description of its own process (no brain call)" } });
+  }
+
+  // "Delete all my chats": done in code, before the brain ever picks a tool — never a guess between this one
+  // chat and every chat (round 2 end-check, 2026-11-02). Still goes through the same Permissions/floor card
+  // (codeAct -> tryAction -> planAction's 'delete_all_chats' case): this only fixes WHICH action runs, not whether
+  // it asks first.
+  if (isMainChat(data) && !memory.looksSecret(message) && DELETE_ALL_CHATS_ASK.test(message) && !(s.pending && s.pending.type === 'imageSubject')) {
+    s.pending = null;
+    return codeAct(res, s, data, message, 'delete_all_chats', {});
+  }
+
+  // "Open the browser view": done in code, never left to the brain's tool-calling (round 4 end-check, 2026-11-02).
+  // Found by comparison with a working ask ("open my open loops"): that one also just relies on the Action Layer's
+  // brain call to pick open_view, and when the brain doesn't call ANY tool on its first turn, actionLane returns
+  // false and the message falls through — for "browser" specifically, straight into browser.wantsBrowser's own
+  // BROWSER_WORD match ("the browser" in "open the browser view"), which starts a SEPARATE browser-TASK brain call
+  // (browserReply) with its own system prompt. That call, given nothing concrete to navigate to, just talked back
+  // ("Okay — opening the Browser for you.") — a real reply, but from a lane that never pushes a view-opening effect,
+  // so the panel never appeared. This intercept makes the one phrasing that means "show me the panel" (as opposed
+  // to "open the browser AND go to weather.gov", left alone, below) a guaranteed codeAct call: the reply is built
+  // directly from the action's own result, so it can never be sent before the effect that opens the view.
+  const OPEN_BROWSER_VIEW = /^(?:(?:hey|hi|ok|okay|please|sim\s*sim)[,\s]+)*(?:(?:can|could|would|will) you\s+|i(?:'d| would) like (?:you )?to\s+|i want (?:you )?to\s+)?(?:please\s+)?(?:open|show(?: me)?|see|look at|pull up|bring up)\s+(?:the|my|your)?\s*(?:sim\s*sim'?s?\s*)?browser(?:\s+(?:view|panel|screen|tab))?[.!? ]*$/i;
+  if (isMainChat(data) && !memory.looksSecret(message) && OPEN_BROWSER_VIEW.test(message) && !(s.pending && s.pending.type === 'imageSubject')) {
+    s.pending = null;
+    return codeAct(res, s, data, message, 'open_view', { view: 'browser' });
   }
 
   // The Action Layer: a message that names something in the app with a doing-word gets the brain WITH its tools
@@ -1061,16 +1143,24 @@ async function answerChat(req, res, s, data, message, picture) {
   }
   // The Answers Process: general -> fast lane; precise -> notebook, the Book, official web, or an honest "no source".
   if (!result) {
-    try {
-      result = await answers.answer({
-        ask: (messages, opts) => askMeta(messages, key, opts),
-        searchWeb: prompt => searchWebUrls(prompt, key),
-        message, history: s.history, profile: book.profile, facts: book.facts, loops: loops.openSorted(book.loops).slice(0, 20),
-        settings: settings.settingsOf(book), tz: data.tz
-      });
-    } catch (e) {
-      return sendJson(res, 502, { error: e.message });
+    // A sane ceiling (founder's end-check, round 3, 2026-11-02): this lane can chain several Meta calls (classify,
+    // the Book, a web search, compose), each with its OWN up-to-60s budget — a slow moment on any one of them could
+    // leave the user looking at "Thinking…" for minutes with no reply and no error until they gave up and hit Stop.
+    // One overall 45s deadline on the whole lane means the chat always gets an answer, even a plain one. On a
+    // timeout the underlying call is left running, unobserved — harmless, the same "Stop only guarantees the answer
+    // never lands" pattern already used elsewhere — it just never gets to reply with whatever it eventually returns.
+    const race = await raceOrTimeout(answers.answer({
+      ask: (messages, opts) => askMeta(messages, key, opts),
+      searchWeb: prompt => searchWebUrls(prompt, key),
+      message, history: s.history, profile: book.profile, facts: book.facts, loops: loops.openSorted(book.loops).slice(0, 20),
+      settings: settings.settingsOf(book), tz: data.tz
+    }), CHAT_CEILING_MS);
+    if (race.timedOut) {
+      return sendReply(res, s, data, message, picture, { reply: CHAT_STUCK_REPLY,
+        process: { command: 'The brain took longer than 45s to answer — ended with a plain reply instead of waiting' } });
     }
+    if (race.error) return sendJson(res, 502, { error: race.error.message });
+    result = race.value;
     Object.assign(proc, result.trace, { wrote: true });
   }
   const reply = result.reply;
@@ -1549,7 +1639,9 @@ function planAction(s, name, args, ctx) {
     case 'delete_all_chats': {
       const n = chats.list(uid).length;
       if (!n) return { error: "There are no chats to delete yet." };
-      return { text: 'Delete all ' + n + ' of your chats, including the Main chat history — it can\'t be undone', run: async () => {
+      // Same true scope as the Data Controls confirm sheet (public/settings.js confirmDeleteAllChats), worded
+      // exactly the same way here (founder's end-check, 2026-11-01: this card wrongly said "Delete this chat").
+      return { text: 'Delete all chats? This removes every chat, including the Main chat history. Your memories, open loops, reminders and settings stay.', run: async () => {
         chats.removeAll(uid);
         resetConversation(s);
         return { ok: true, detail: 'Deleted all ' + n + ' chat' + (n === 1 ? '' : 's'),
@@ -1557,8 +1649,17 @@ function planAction(s, name, args, ctx) {
       } };
     }
     case 'open_view': {
-      const v = String(args.view || '').toLowerCase();
-      if (!actions.VIEWS.includes(v)) return { error: 'There is no screen called ' + (args.view || 'that') + '.' };
+      // Generous matching (round 3 end-check, 2026-11-02): "open the browser view" let the brain pass "browser
+      // view" instead of the bare enum value. A strict exact-match silently failed the tool (no effect, no view
+      // opened) while the brain's own wrap-up reply still said "Opened the Browser," since nothing told it otherwise
+      // — the brain can only claim what a result confirms, and an error result says the opposite, but it composed
+      // the final line itself and got it wrong. Stripping filler words first, then falling back to a match against
+      // the view's own display name, means the tool actually succeeds for the phrasing a user would really say.
+      const raw = String(args.view || '').toLowerCase().trim();
+      const q = raw.replace(/\b(?:the|my|your|our|a|an)\b/g, ' ').replace(/\b(?:view|screen|panel|page|tab)\b/g, ' ').replace(/\s+/g, ' ').trim();
+      const v = actions.VIEWS.find(x => x === raw || x === q) ||
+        actions.VIEWS.find(x => q && actions.VIEW_NAMES[x].toLowerCase().replace(/^the\s+/, '').includes(q));
+      if (!v) return { error: 'There is no screen called ' + (args.view || 'that') + '.' };
       return { text: 'Open ' + actions.VIEW_NAMES[v], run: async () =>
         ({ ok: true, detail: 'Opened ' + actions.VIEW_NAMES[v], say: 'Opening ' + actions.VIEW_NAMES[v] + '.', effects: [{ type: 'view', view: v }] }) };
     }
@@ -1742,7 +1843,8 @@ async function actionLoop(s, key, messages, ctx, state, first) {
   return { reply: '' };
 }
 // The plain line shown with an allowance card.
-const askLine = card => 'Before I do this, I need your OK: ' + card.text + '.';
+// card.text already ends with its own punctuation for the delete-all card (two full sentences); never double it.
+const askLine = card => 'Before I do this, I need your OK: ' + card.text + (/[.!?]$/.test(card.text) ? '' : '.');
 const leavesThread = effects => effects.some(e => e.type === 'openThread' || e.type === 'threadDeleted');
 
 // A code-read command (the side chat ask, forget, done) done as an action. The reply is written by code.
@@ -2283,6 +2385,12 @@ async function handleFacts(req, res, action) {
     book.facts = [];          // facts only: the profile basics stay
     writeNotebooks(all);
   }
+  // An edited/deleted/cleared fact must win right away (founder's end-check, round 3, 2026-11-02): the notebook
+  // itself was always saved correctly, but a stale answer from earlier in this same chat ("your favorite soup is
+  // lentil") was still sitting in s.history, and the brain kept it consistent with its own prior turn instead of
+  // the freshly-edited notebook. Clearing it means the very next answer is built only from the system prompt's
+  // current notebook, never an old assistant turn that now disagrees with it.
+  if (action !== 'list') s.history = [];
   sendJson(res, 200, { facts: memory.newestFirst(book.facts) });
 }
 
@@ -2293,7 +2401,10 @@ function serveFile(req, res) {
   if (!file.startsWith(PUBLIC_DIR + path.sep)) { res.writeHead(403); return res.end('Forbidden'); }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('Not found'); }
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    // no-store, not just no-cache (round 4 end-check, 2026-11-02): no-cache still permits Chrome's back/forward
+    // cache to serve an old in-memory copy of the page without ever asking the server — a real way a fix already
+    // on disk could still look "not live" to whoever is testing. no-store rules that out for every static file.
+    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
   });
 }

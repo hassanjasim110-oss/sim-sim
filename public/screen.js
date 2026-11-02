@@ -13,8 +13,22 @@
     panel: $('screenPanel'), head: $('spHead'), stop: $('spStop'), float: $('spFloat'), thread: $('spThread'),
     form: $('spForm'), input: $('spInput'), look: $('spLook'), mic: $('spMic'), cap: $('spCap'),
     freezeBtn: $('freezeBtn'), layer: $('freezeLayer'), canvas: $('flCanvas'), clear: $('flClear'), close: $('flClose'),
-    video: $('screenVideo'), watchBtn: $('watchBtn')
+    watchBtn: $('watchBtn')
   };
+  // The hidden capture <video> (founder's end-check round 3, 2026-11-02): made on first use, not sitting in the
+  // page's own markup from the start — a static, source-less <video> was in every page's DOM, landing included,
+  // long before Screen Watch is ever asked for. Its #screenVideo id/CSS (2px, invisible) are unchanged.
+  let videoEl = null;
+  function getVideo() {
+    if (!videoEl) {
+      videoEl = document.createElement('video');
+      videoEl.id = 'screenVideo';
+      videoEl.muted = true;
+      videoEl.playsInline = true;
+      document.body.appendChild(videoEl);
+    }
+    return videoEl;
+  }
   const LOOP_MS = 5000;          // the capture loop refreshes the latest frame every 5 seconds (it never calls the brain)
   const MAX_EDGE = 1280;         // frames are scaled to at most 1280px on the long edge…
   const JPEG_Q = 0.7;            // …and sent as JPEG at quality 0.7
@@ -37,8 +51,8 @@
     if (grabber) {
       try { const bmp = await grabber.grabFrame(); scaleInto(bmp, bmp.width, bmp.height); bmp.close(); return true; } catch (e) { /* fall back */ }
     }
-    if (!E.video.videoWidth) return false;
-    scaleInto(E.video, E.video.videoWidth, E.video.videoHeight);
+    if (!getVideo().videoWidth) return false;
+    scaleInto(getVideo(), getVideo().videoWidth, getVideo().videoHeight);
     return true;
   }
   const snapshot = c => c.toDataURL('image/jpeg', JPEG_Q);
@@ -56,8 +70,8 @@
     }
     const track = stream.getVideoTracks()[0];
     grabber = window.ImageCapture ? new ImageCapture(track) : null;
-    E.video.srcObject = stream;
-    try { await E.video.play(); } catch (e) {}
+    getVideo().srcObject = stream;
+    try { await getVideo().play(); } catch (e) {}
     track.addEventListener('ended', stop);   // the browser's own "Stop sharing" ends everything too
     loop = setInterval(capture, LOOP_MS);
     setTimeout(capture, 600);
@@ -73,7 +87,7 @@
     clearInterval(loop); loop = null;
     if (stream) stream.getTracks().forEach(t => t.stop());
     stream = null; grabber = null;
-    E.video.srcObject = null;
+    if (videoEl) videoEl.srcObject = null;
     frame.width = frame.height = 0;   // no frame is kept
     unfreeze();
     if (pip) pip.close();             // closing the floating window brings the nodes home (see popOut)

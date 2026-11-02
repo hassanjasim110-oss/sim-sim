@@ -160,6 +160,9 @@ function buildChatSystem(profile, facts, openLoops, who, settings, tz) {
   s += '\n\n' + name + "'s notebook — the ONLY things you remember about " + name + "'s life (newest first):\n" + (list || '(nothing yet)');
   s += '\n\nMemory rules:' +
     '\n- For questions about ' + name + "'s own life (people, dates, places, plans, preferences, things they own), answer only from the profile basics and the notebook above." +
+    '\n- The profile basics and the notebook above are read fresh for THIS reply, every time — if either one differs from something you or ' + name +
+      ' said earlier in this conversation, the version above is the current, correct one (it may have been edited since). Trust it over the earlier conversation, never the other way around.' +
+    '\n- Profile basics (name, gender, age, state) always outrank a notebook fact that conflicts with one of them (an old note about moving, a previous age, an old name) — never state a different name, gender, age or state than what is in "Profile basics" above.' +
     '\n- If the answer is not there, say plainly that ' + name + " hasn't told you that yet. Never invent or guess a name, date, place or detail to sound like you remember. A false memory is worse than no memory." +
     '\n- Never repeat back, and never promise to keep, passwords, codes, PINs, card or account numbers, government IDs, or keys. If ' + name + " shares one, gently say you don't keep secrets like that." +
     "\n- Saving to the notebook happens separately — don't announce what you are saving.";
@@ -277,6 +280,24 @@ function isLanguagePreferenceFact(f) {
   return f && f.category === 'preferences' && typeof f.text === 'string' && LANG_FACT.test(f.text);
 }
 
+// ---- Basics outrank memory (founder's end-check, round 3, 2026-11-02) ----
+// When the user edits Profile Basics (name, gender, age, state), the latest edit is the truth — a notebook fact
+// that conflicts with the CURRENT value for that same field must be retired, so the two surfaces can never
+// disagree afterward (the prompt rule above is the other half: basics always outrank a surviving fact either way).
+// Scoped to "state" first, since that's the demonstrated live case: the state was Idaho the whole time, but a
+// "moved to Tennessee" fact (never itself a prior Basics value — just a contradicting note) kept winning the
+// answer; saving Basics with ANY state, even unchanged, retires a residence fact naming a DIFFERENT one.
+// Anchored at the START of the fact: the extractor never starts a fact about the user with a subject ("Lives in
+// Tennessee", "Moved to Tennessee…" — never "User lives…"), so a fact about someone ELSE's residence ("Sister
+// lives in Tennessee") starts with that person instead and is correctly left alone.
+const RESIDENCE_VERB = /^(?:lives?|living|moved|move[sd]?|relocat\w*|resid\w*|stay(?:ing|s)?|home)\b/i;
+function isConflictingResidenceFact(f, currentState, allStates) {
+  if (!f || typeof f.text !== 'string' || !currentState || !Array.isArray(allStates)) return false;
+  if (!RESIDENCE_VERB.test(f.text)) return false;
+  return allStates.some(st => st !== currentState &&
+    new RegExp('\\b' + st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(f.text));
+}
+
 // ---- Forgetting by voice or text ----
 const STOP = new Set(('a an the my his her their our your me i you it its that this these those about please of to for on in at is was are be ' +
   'and or what where when who how which do did does sim simsim thing things stuff just now again').split(' '));
@@ -319,5 +340,5 @@ module.exports = {
   CATEGORIES, looksSecret, wordCount, newFactId, newestFirst,
   identityLines, buildChatSystem, buildExtractorMessages, parseOps, applyOps,
   parseForget, matchFacts, plain, MAX_FACTS_IN_CONTEXT,
-  isLanguageResetMessage, isLanguagePreferenceFact
+  isLanguageResetMessage, isLanguagePreferenceFact, isConflictingResidenceFact
 };

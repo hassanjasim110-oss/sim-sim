@@ -311,6 +311,18 @@ async function postChat(text, extra) {
   });
   return { r, data: await r.json().catch(() => ({})) };
 }
+// A picture edit that never resolves (a hung connection, a very slow Meta call) must not sit in "Editing…" forever
+// and then just vanish on the next reload — it needs its own plain reply (founder's end-check, 2026-11-01). This
+// races the real request against a timer; the real fetch is left running in the background (never aborted — the
+// server may still finish and save the turn), but the UI stops waiting on it and shows the honest line instead.
+const EDIT_TIMEOUT_MS = 65000;
+const EDIT_STUCK_MSG = "That edit didn't go through — try again.";
+function raceTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => { const e = new Error('timed out'); e.timedOut = true; reject(e); }, ms);
+    promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+  });
+}
 
 // opts.viaWake: the message came from wake-by-name (the server uses it for "good morning" briefings)
 // opts.picture: { dataUrl, previewUrl } — a picture to show Sim Sim with this message (1-on-1 chat only)
@@ -350,8 +362,9 @@ async function send(text, opts) {
   const unwatch = window.SimSimBrowser ? window.SimSimBrowser.watch(slot) : () => {};
   activeUnwatch = unwatch;
   try {
-    const { r, data } = await postChat(text, { viaWake: opts && opts.viaWake, picture: picture && picture.dataUrl, thread: threadId || 'new', quote,
+    const chatCall = postChat(text, { viaWake: opts && opts.viaWake, picture: picture && picture.dataUrl, thread: threadId || 'new', quote,
       voice: voiceNote ? { audio: voiceNote.dataUrl, transcript: voiceNote.transcript } : null, signal: chatAbort.signal });
+    const { r, data } = editing ? await raceTimeout(chatCall, EDIT_TIMEOUT_MS) : await chatCall;
     if (r.status === 401) signedOut = true;
     else if (r.ok && typeof data.reply === 'string') { reply = data.reply; turnId = data.turnId || null; memoryChanged = !!data.memoryChanged; image = data.image || null; sources = data.sources || null; browsed = data.browser === true; docFile = data.document || null; siteFile = data.website || null;
       if (data.remindersChanged) window.dispatchEvent(new Event('simsim:reminderschanged'));   // a reminder was set: the lists update
@@ -369,6 +382,7 @@ async function send(text, opts) {
     else error = data.error || 'Sim Sim could not get an answer.';
   } catch (e) {
     if (e.name === 'AbortError') stopped = true;   // stopChat() already cleared the bubble and the busy state
+    else if (e.timedOut) error = EDIT_STUCK_MSG;   // the edit didn't come back in time — the honest line, never silence
     else error = 'Could not reach the Sim Sim server. Is it still running?';
   }
 
@@ -408,7 +422,7 @@ async function send(text, opts) {
     if (turnId && window.SimSimMemory) window.SimSimMemory.learnFrom(turnId, msg);   // quiet "Remembered:" chips, if any
     if (memoryChanged && window.SimSimMemory) window.SimSimMemory.refreshIfOpen();
   }
-  else { msg.classList.add('error'); slot.textContent = error; scrollDown(); idle(); }
+  else { msg.classList.add('error'); slot.textContent = error || (editing ? EDIT_STUCK_MSG : 'Sim Sim could not get an answer.'); scrollDown(); idle(); }
 }
 
 // ---- The Action Layer on the page: what Sim Sim did in the app (effects) and its allowance cards ----

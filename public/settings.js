@@ -46,43 +46,13 @@
     loadVoices();
   }
 
-  // ---- Sim Sim's voice: the 10 designed voices (founder's roster). The true status, always: a voice that isn't set up
-  // says so, and with no voice service Sim Sim speaks with the device's voice — the line here says that plainly. ----
+  // ---- Sim Sim's voice: the dormant ElevenLabs roster stays wired up server-side (GET /api/voices, the Action
+  // Layer's set_voice tool) so a chosen designed voice still plays if one is ever set up — but the Settings UI
+  // no longer lists the ten voices or a "Hear it" per voice (founder's end-check, 2026-11-01): with none seeded,
+  // showing a picker that always falls back to the device voice read as broken, not finished. ----
   let voices = null;   // /api/voices: { connected, chosen, preview, voices: [{ name, label, line, ready }] }
-  // `name` is the internal key (stored selection, POST /api/settings) — never shown. `label` (founder, 2026-10-31)
-  // is the character description the user sees instead of a person's name.
   async function loadVoices() {
-    try { voices = await call('/api/voices'); chat.setVoiceStatus(voices); paintVoices(); } catch (e) {}
-  }
-  function paintVoices() {
-    if (!voices) return;
-    const chosen = voices.voices.find(v => v.name === voices.chosen);
-    $('voiceStatus').textContent = !voices.connected ? "Voice service not connected yet — Sim Sim speaks with your device's voice for now."
-      : chosen && chosen.ready ? 'Sim Sim speaks as ' + (chosen ? chosen.label : voices.chosen) + '.'
-      : (chosen ? chosen.label : voices.chosen) + " isn't set up yet — Sim Sim speaks with your device's voice for now.";
-    const list = $('voiceList');
-    list.replaceChildren();
-    voices.voices.forEach(v => {
-      const row = document.createElement('div');
-      row.className = 'voice-row';
-      const pick = document.createElement('button');
-      pick.type = 'button'; pick.className = 'voice-pick';
-      pick.setAttribute('role', 'radio'); pick.setAttribute('aria-checked', String(v.name === voices.chosen));
-      const who = document.createElement('b'); who.textContent = v.label + (v.name === 'Noor' ? ' (default)' : '');
-      const line = document.createElement('small');
-      line.textContent = v.line + (voices.connected && !v.ready ? ' · not set up yet' : '');
-      pick.append(who, line);
-      pick.addEventListener('click', async () => { await save({ voice: v.name }); loadVoices(); });
-      const hear = document.createElement('button');
-      hear.type = 'button'; hear.className = 'mini-btn';
-      hear.textContent = 'Hear it';
-      hear.disabled = !(voices.connected && v.ready);
-      hear.title = hear.disabled ? (voices.connected ? 'Not set up yet' : 'Voice service not connected yet') : 'Hear ' + v.label;
-      hear.setAttribute('aria-label', 'Hear ' + v.label);
-      hear.addEventListener('click', () => chat.speak(voices.preview, true, v.name));
-      row.append(pick, hear);
-      list.append(row);
-    });
+    try { voices = await call('/api/voices'); chat.setVoiceStatus(voices); } catch (e) {}
   }
   window.addEventListener('simsim:signedin', loadAndApply);
   window.addEventListener('simsim:signedout', () => {

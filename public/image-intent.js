@@ -120,6 +120,10 @@
   // "take the kid out of the photo", "get him out of the picture", "take her out"
   const TAKE_OUT = new RegExp(LEAD + "(?:(?:now|then|also|and)[,\\s]+)?(?:take|get)\\s+(?:(?:him|her|them)\\s+(?:out|away)\\b|.+?\\s+out of (?:the|this|that|my) (?:picture|photo|image|pic|shot|frame)\\b)", 'i');
   // Plain life admin is never a photo edit: "add milk to my list", "change my name", "move my meeting", "add eggs to groceries".
+  // A voice ask ("change your voice", "use a different voice", "sound different", "new voice") is never a photo edit either
+  // (founder's end-check, 2026-11-01): "change your voice to a different one" matched EDIT_LEAD's bare "change" and silently
+  // edited the current picture instead of answering about the voice. A bare "change…" with no picture/visual word is not enough.
+  const VOICE_ASK = /\b(?:different|another|new|change|switch|use)\b[^.?!]{0,15}\bvoice\b|\bvoice\b[^.?!]{0,15}\b(?:different|change|switch)\b|\bsounds? different\b/i;
   const NOT_EDIT = new RegExp('\\b(?:list|lists|loops?|tasks?|to-?dos?|calendar|reminders?|notebook|notes?|memory|schedule|agenda|meeting|appointment|deadline|' +
     'grocer(?:y|ies)|shopping|cart|contacts?|playlist|budget|expenses?|errands?|chores?|today|tonight|tomorrow|yesterday|' +
     'monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month|o\'clock|\\d+\\s*(?:am|pm))\\b|' +
@@ -129,7 +133,7 @@
     if (typeof text !== 'string') return false;
     const t = tidy(text);
     if (!t || /^(?:what|why|how|when|where|who|whose|which|is|are|was|were|do|does|did|has|have|should)\b/i.test(t)) return false;
-    if (NOT_EDIT.test(t)) return false;
+    if (NOT_EDIT.test(t) || VOICE_ASK.test(t)) return false;
     if (TAKE_OUT.test(t)) return true;
     const m = t.match(EDIT_LEAD);
     // the change has to say something: "add a dog", "make it real" — not a bare "delete that"

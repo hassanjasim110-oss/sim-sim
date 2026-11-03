@@ -24,6 +24,7 @@ function stopChat() {
   stopSpeaking();
   activeUnwatch();
   activeUnwatch = () => {};
+  if (pending && pending.msg === activeMsg) pending = null;   // deliberately stopped: the watchdog must never revive it
   if (activeMsg) {
     const slot = activeMsg.querySelector('.txt');
     if (slot) slot.innerHTML = '<small class="stopped-line">Stopped.</small>';
@@ -311,18 +312,69 @@ async function postChat(text, extra) {
   });
   return { r, data: await r.json().catch(() => ({})) };
 }
-// A picture edit that never resolves (a hung connection, a very slow Meta call) must not sit in "Editing…" forever
-// and then just vanish on the next reload — it needs its own plain reply (founder's end-check, 2026-11-01). This
-// races the real request against a timer; the real fetch is left running in the background (never aborted — the
-// server may still finish and save the turn), but the UI stops waiting on it and shows the honest line instead.
-const EDIT_TIMEOUT_MS = 65000;
-const EDIT_STUCK_MSG = "That edit didn't go through — try again.";
-function raceTimeout(promise, ms) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => { const e = new Error('timed out'); e.timedOut = true; reject(e); }, ms);
-    promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
-  });
+// The live view must never show a failure the server didn't confirm, and never spin forever (founder's end-check,
+// round 6, 2026-11-02, and round 6B, the same day: a true live-delivery bug, reproduced on Main-chat picture
+// operations — the backend answered correctly, in seconds, and saved it; the open tab just never rendered it).
+// Round 6's first attempt tied the ceiling to the ONE in-flight fetch's own await chain (racing it against a
+// setTimeout inside send()'s own try/catch) — live re-verification showed that still sat past 60s with neither the
+// try-again line nor a reconciled result, for the SECOND pair of messages in the same session; only a later,
+// unrelated view of Main chat ever picked up the finished edit. Whatever made that specific await-chain unreliable
+// a minute into a session (never fully pinned down — the server-side half was always correct), a watchdog tied to
+// THAT SAME call's own lifecycle inherits the same risk. Round 6B decouples the two completely: a single global
+// ticking check, independent of any one send() call's promise chain, watches whatever is pending by WALL-CLOCK time
+// alone — it keeps working even if the original fetch, or the code awaiting it, never resolves at all.
+const LIVE_CEILING_MS = 45000;
+const STUCK_LINE = 'That took too long — try again.';
+const WATCHDOG_TICK_MS = 5000;
+async function fetchTail(tid) {
+  try {
+    const r = await fetch('/api/chats/tail?id=' + encodeURIComponent(tid), { cache: 'no-store' });
+    return r.ok ? await r.json() : null;
+  } catch (e) { return null; }
 }
+// The one message currently waiting on a reply, watched by wall-clock time alone — never by anything tied to the
+// fetch that started it. knownMids: every message id already on screen before this turn, so the user's own bubble
+// (saved server-side with a real id it doesn't have yet) is never rendered a second time if reconciliation runs.
+let pending = null;   // { msg, slot, sentAt, myChat, knownMids, stuck, reconciling }
+// Ticks every WATCHDOG_TICK_MS AND on window focus (so coming back to the tab checks right away, not on the next
+// scheduled tick) — not triggered by, or dependent on, the user doing anything else at all.
+function checkPending() {
+  if (!pending) return;
+  const p = pending;
+  if (!p.msg.isConnected || p.myChat !== chatId) { pending = null; return; }   // the view moved on: stop watching
+  if (Date.now() - p.sentAt < LIVE_CEILING_MS) return;
+  if (!p.stuck) {
+    p.stuck = true;
+    p.slot.textContent = STUCK_LINE;
+    stampMsgTime(p.msg, Date.now());
+    if (activeMsg === p.msg) { busy = false; chatAbort = null; setChatBusy(false); activeMsg = null; idle(); }
+  }
+  reconcileNow(p);
+}
+// A response the live channel dropped (or declared "stuck" too early) is still sitting in storage the moment the
+// server finishes — reconciling means reading THAT, the same way a reload would, instead of ever guessing.
+async function reconcileNow(p) {
+  if (p.reconciling || pending !== p) return;   // one check at a time; also stops once something else resolves this
+  p.reconciling = true;
+  try {
+    let tid = threadId;
+    if (!tid) {   // a brand-new chat whose very first reply never landed: find it by kind (main vs a newly named side)
+      try { const list = await fetch('/api/chats', { cache: 'no-store' }).then(r => r.json()); tid = (list.chats || []).find(c => c.kind === threadKind)?.id; }
+      catch (e) {}
+    }
+    if (!tid || pending !== p) return;
+    const t = await fetchTail(tid);
+    if (!t || pending !== p) return;
+    const fresh = t.messages.filter(m => !p.knownMids.has(m.id) && Date.parse(m.at) >= p.sentAt - 2000);
+    if (!fresh.length || !p.msg.isConnected) return;
+    p.msg.remove();
+    fresh.forEach(m => renderSavedMessage(t, m));
+    scrollDown();
+    pending = null;
+  } finally { p.reconciling = false; }
+}
+setInterval(checkPending, WATCHDOG_TICK_MS);
+window.addEventListener('focus', checkPending);
 
 // opts.viaWake: the message came from wake-by-name (the server uses it for "good morning" briefings)
 // opts.picture: { dataUrl, previewUrl } — a picture to show Sim Sim with this message (1-on-1 chat only)
@@ -341,6 +393,9 @@ async function send(text, opts) {
   cancelCards('Cancelled — you sent a new message.');   // the server drops the held action too: it never fires later
   const voiceNote = opts && opts.voiceNote;   // { dataUrl, url, transcript } — an existing voice note already in a thread
   const sentAt = Date.now();
+  // Every message already on screen, before this turn's own two bubbles exist — reconcileNow()'s guide to what's
+  // genuinely NEW if the live view has to fall back to reading storage directly.
+  const knownMids = new Set([...col.querySelectorAll('[data-mid]')].map(e => e.dataset.mid));
   const you = voiceNote ? addUser('', null, quote, { src: voiceNote.url, transcript: voiceNote.transcript }, sentAt) : addUser(text, picture && picture.previewUrl, quote, null, sentAt);
   setPill('Thinking', 'busy');
   const msg = addSim(), slot = msg.querySelector('.txt');
@@ -356,15 +411,19 @@ async function send(text, opts) {
     const word = editing ? 'Editing' : 'Drawing';
     slot.innerHTML = '<div class="drawing" aria-label="Sim Sim is ' + word.toLowerCase() + '"><span>' + word + '…</span></div>';
   }
+  // Watched by the global watchdog (checkPending/setInterval, above) from the moment the placeholder appears —
+  // by wall-clock time alone, never by this call's own fetch settling. myPending is this turn's own identity:
+  // if something else (the watchdog reconciling, or a newer message replacing it) has already resolved `pending`
+  // by the time this call's own await comes back — however late — that result is a no-op below, never a double-render.
+  const myPending = pending = { msg, slot, sentAt, myChat, knownMids, stuck: false, reconciling: false };
 
   let reply = null, error = null, signedOut = false, stopped = false, turnId = null, memoryChanged = false, image = null, sources = null, guardian = null, loopsChanged = false, receipt = null, saved = null, browsed = false, docFile = null, siteFile = null, effects = [], card = null;
   // a browser task narrates itself in this bubble ("Opening weather.gov…", with Stop) while it works
   const unwatch = window.SimSimBrowser ? window.SimSimBrowser.watch(slot) : () => {};
   activeUnwatch = unwatch;
   try {
-    const chatCall = postChat(text, { viaWake: opts && opts.viaWake, picture: picture && picture.dataUrl, thread: threadId || 'new', quote,
+    const { r, data } = await postChat(text, { viaWake: opts && opts.viaWake, picture: picture && picture.dataUrl, thread: threadId || 'new', quote,
       voice: voiceNote ? { audio: voiceNote.dataUrl, transcript: voiceNote.transcript } : null, signal: chatAbort.signal });
-    const { r, data } = editing ? await raceTimeout(chatCall, EDIT_TIMEOUT_MS) : await chatCall;
     if (r.status === 401) signedOut = true;
     else if (r.ok && typeof data.reply === 'string') { reply = data.reply; turnId = data.turnId || null; memoryChanged = !!data.memoryChanged; image = data.image || null; sources = data.sources || null; browsed = data.browser === true; docFile = data.document || null; siteFile = data.website || null;
       if (data.remindersChanged) window.dispatchEvent(new Event('simsim:reminderschanged'));   // a reminder was set: the lists update
@@ -382,13 +441,19 @@ async function send(text, opts) {
     else error = data.error || 'Sim Sim could not get an answer.';
   } catch (e) {
     if (e.name === 'AbortError') stopped = true;   // stopChat() already cleared the bubble and the busy state
-    else if (e.timedOut) error = EDIT_STUCK_MSG;   // the edit didn't come back in time — the honest line, never silence
     else error = 'Could not reach the Sim Sim server. Is it still running?';
   }
 
   unwatch();
   activeUnwatch = () => {};
+  // Settled on this call's own fetch, not the watchdog: stop watching it here. If `pending` had already moved on
+  // (the watchdog's reconcileNow() resolved it, or the user sent a newer message), this result is stale — never a
+  // double-render, whatever it is, even a real, late success: the watchdog already rendered the true result
+  // straight from storage, byte-identical to this one.
+  const stale = pending !== myPending;
+  if (!stale) pending = null;
   if (stopped) return;   // nothing left to show: the user's own Stop already did it
+  if (stale) return;
   busy = false; chatAbort = null; setChatBusy(false); activeMsg = null;
   if (signedOut) { window.dispatchEvent(new Event('simsim:needsignin')); return; } // back to the sign-in screen
   if (myChat !== chatId) { idle(); return; } // user started a new chat meanwhile
@@ -422,7 +487,7 @@ async function send(text, opts) {
     if (turnId && window.SimSimMemory) window.SimSimMemory.learnFrom(turnId, msg);   // quiet "Remembered:" chips, if any
     if (memoryChanged && window.SimSimMemory) window.SimSimMemory.refreshIfOpen();
   }
-  else { msg.classList.add('error'); slot.textContent = error || (editing ? EDIT_STUCK_MSG : 'Sim Sim could not get an answer.'); scrollDown(); idle(); }
+  else { msg.classList.add('error'); slot.textContent = error || 'Sim Sim could not get an answer.'; scrollDown(); idle(); }
 }
 
 // ---- The Action Layer on the page: what Sim Sim did in the app (effects) and its allowance cards ----
@@ -1079,6 +1144,7 @@ Object.keys(VIEW_TITLES).forEach(id => new MutationObserver(paintTitle).observe(
 // Empties the chat column. The next message starts a fresh MAIN thread (New chat), unless a thread is loaded after it.
 function clearChat() {
   chatId++; subjectNext = false;
+  pending = null;   // a new chat means nothing from the old one is still worth watching
   threadId = null;
   threadKind = 'main'; threadTitle = '';
   paintTitle();
@@ -1107,6 +1173,60 @@ function addSimText(text) {
   scrollDown();
 }
 
+// A Discussion pick's write-back, shown in the Main chat the moment it happens — never only on a reload
+// (founder's end-check, round 6, 2026-11-02): switching to Main chat is a pure visibility toggle (showChat()
+// just un-hides #thread/#composer); it was never re-fetching the thread, so a pick made while looking at
+// Discussion sat unseen in storage until the next full page load. Mirrors loadThread's own per-message
+// rendering for a discussionPick message exactly, so the live bubble and a reloaded one are indistinguishable.
+function addDiscussionPickMessage(wb) {
+  if (threadKind !== 'main' || !wb) return;   // only the thread actually on screen; a side chat's own pick (if any) shows on its own reload
+  if (!threadId) threadId = wb.threadId;      // a brand-new session's first-ever message might be this pick
+  hideEmpty();
+  const msg = addSim(wb.name, true), slot = msg.querySelector('.txt');
+  msg.dataset.mid = wb.messageId;
+  renderRich(slot, wb.text);
+  stampMsgTime(msg, Date.now());
+  addOptions(msg, wb.name, wb.text);
+  attachActions(msg, wb.threadId, wb.messageId, null, false);
+  scrollDown();
+}
+// Switching a Discussion pick removes the OLD write-back bubble and adds the NEW one, live, in one call — the
+// same pair of things recordPick just did on the server (chats.removeReply, then chats.addDiscussionPick).
+function applyDiscussionPickWriteBack(result) {
+  if (result && result.removed && threadKind === 'main') {
+    const old = col.querySelector('.msg[data-mid="' + result.removed.messageId + '"]');
+    if (old) old.remove();
+  }
+  if (result && result.writeBack) addDiscussionPickMessage(result.writeBack);
+}
+
+// One saved message, exactly as a reloaded thread renders it — used by loadThread (every message) AND by
+// reconcile() below (just the one new message a dropped live render missed). Returns the message's own node.
+function renderSavedMessage(t, m) {
+  const at = Date.parse(m.at);   // this message's real send time, stored on the server — never today's
+  if (m.role === 'user') {
+    const u = m.voice && /^[a-f0-9]{20}\.(webm|ogg|mp4)$/.test(m.voice.name)
+      ? addUser('', null, m.quote, { src: '/api/voicenotes/' + m.voice.name, transcript: m.voice.transcript ? m.text : '' }, at)
+      : addUser(m.picture ? (m.picture === 'screen' ? '[Screen snapshot — not saved] ' : '[Picture — not saved] ') + m.text : m.text, null, m.quote, null, at);
+    attachActions(u, t.id, m.id, m.reaction, true);
+    u.dataset.mid = m.id;   // search can scroll to this message
+    return u;
+  }
+  const msg = addSim(m.discussionPick ? m.discussionPick.name : null, !!m.discussionPick), slot = msg.querySelector('.txt');
+  msg.dataset.mid = m.id;
+  if (m.guardian) msg.classList.add('guardian');
+  if (m.image) showImage(slot, m.image, m.text);
+  else if (m.guardian) slot.textContent = m.text;
+  else renderRich(slot, m.text);
+  stampMsgTime(msg, at);
+  if (m.document) addDocument(msg, m.document);
+  if (m.website) addWebsite(msg, m.website);
+  if (m.sources && m.sources.length) addCitation(msg, m.sources, m.browser === true);
+  if (m.receipt) addReceipt(msg, m.receipt);
+  addOptions(msg, m.discussionPick ? m.discussionPick.name : 'Sim Sim', m.text, m.image && m.image.url);
+  if (!m.guardian) attachActions(msg, t.id, m.id, m.reaction, false);
+  return msg;
+}
 // A saved thread (the main Chat or a side chat), put back on screen exactly as it was (nothing is spoken).
 // New messages then go on into the SAME thread. An empty side chat shows the usual empty greeting.
 function loadThread(t) {
@@ -1116,30 +1236,7 @@ function loadThread(t) {
   setTitle(t.title || '');
   window.dispatchEvent(new Event('simsim:threadchanged'));
   if (t.messages.length) hideEmpty();
-  t.messages.forEach(m => {
-    const at = Date.parse(m.at);   // this message's real send time, stored on the server — never today's
-    if (m.role === 'user') {
-      const u = m.voice && /^[a-f0-9]{20}\.(webm|ogg|mp4)$/.test(m.voice.name)
-        ? addUser('', null, m.quote, { src: '/api/voicenotes/' + m.voice.name, transcript: m.voice.transcript ? m.text : '' }, at)
-        : addUser(m.picture ? (m.picture === 'screen' ? '[Screen snapshot — not saved] ' : '[Picture — not saved] ') + m.text : m.text, null, m.quote, null, at);
-      attachActions(u, t.id, m.id, m.reaction, true);
-      u.dataset.mid = m.id;   // search can scroll to this message
-      return;
-    }
-    const msg = addSim(m.discussionPick ? m.discussionPick.name : null, !!m.discussionPick), slot = msg.querySelector('.txt');
-    msg.dataset.mid = m.id;
-    if (m.guardian) msg.classList.add('guardian');
-    if (m.image) showImage(slot, m.image, m.text);
-    else if (m.guardian) slot.textContent = m.text;
-    else renderRich(slot, m.text);
-    stampMsgTime(msg, at);
-    if (m.document) addDocument(msg, m.document);
-    if (m.website) addWebsite(msg, m.website);
-    if (m.sources && m.sources.length) addCitation(msg, m.sources, m.browser === true);
-    if (m.receipt) addReceipt(msg, m.receipt);
-    addOptions(msg, m.discussionPick ? m.discussionPick.name : 'Sim Sim', m.text, m.image && m.image.url);
-    if (!m.guardian) attachActions(msg, t.id, m.id, m.reaction, false);
-  });
+  t.messages.forEach(m => renderSavedMessage(t, m));
   scrollDown();
 }
 
@@ -1152,7 +1249,7 @@ window.addEventListener('simsim:signedout', () => {
 });
 window.addEventListener('simsim:profileopen', () => captureEnd('away'));
 window.SimSimChat = {
-  clear: clearChat, addSimText, send, postChat, setPill, caption, speak, stopSpeaking, idle, addCitation, addReceiptSteps, setSpeak, applySpeak, setRate, loadThread,
+  clear: clearChat, addSimText, applyDiscussionPickWriteBack, send, postChat, setPill, caption, speak, stopSpeaking, idle, addCitation, addReceiptSteps, setSpeak, applySpeak, setRate, loadThread,
   composer, fitInput, startReply, clearReply, quoteBlock, renderRich,
   threadId: () => threadId,
   kind: () => threadKind,

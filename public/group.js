@@ -136,7 +136,7 @@
     turns.forEach(t => { t.locked = true; paintTurn(t); });
     $('gPrivacy').hidden = true;
     const qid = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
-    // pickable: the server's call on this round — a real question gets "Pick this one"; small talk is plain conversation
+    // pickable arrives true with the first answer (round 6, 2026-11-02: every new question gets "Pick this one" now)
     const turn = { qid, cards: {}, answers: {}, pick: null, locked: false, pickable: false, revealing: true, flushing: false, wake: null, speakAfter: null };
     turns.push(turn);
     question(text, quote);
@@ -245,6 +245,8 @@
     catch (e) { return; }
     turn.pick = m;
     if (d && d.taste) { const p = profile(); p.taste = d.taste; renderTeam(); }   // the counter moves now, not on the next question
+    // The Main chat write-back, live — no reload needed to see it there (founder's end-check, round 6, 2026-11-02).
+    chat.applyDiscussionPickWriteBack(d);
     paintTurn(turn);
     chat.stopSpeaking();
     // Speak ON: only the PICKED answer is ever spoken — and never during the reveal (a pick then speaks when it ends)

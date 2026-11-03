@@ -280,23 +280,13 @@ function isLanguagePreferenceFact(f) {
   return f && f.category === 'preferences' && typeof f.text === 'string' && LANG_FACT.test(f.text);
 }
 
-// ---- Basics outrank memory (founder's end-check, round 3, 2026-11-02) ----
-// When the user edits Profile Basics (name, gender, age, state), the latest edit is the truth — a notebook fact
-// that conflicts with the CURRENT value for that same field must be retired, so the two surfaces can never
-// disagree afterward (the prompt rule above is the other half: basics always outrank a surviving fact either way).
-// Scoped to "state" first, since that's the demonstrated live case: the state was Idaho the whole time, but a
-// "moved to Tennessee" fact (never itself a prior Basics value — just a contradicting note) kept winning the
-// answer; saving Basics with ANY state, even unchanged, retires a residence fact naming a DIFFERENT one.
-// Anchored at the START of the fact: the extractor never starts a fact about the user with a subject ("Lives in
-// Tennessee", "Moved to Tennessee…" — never "User lives…"), so a fact about someone ELSE's residence ("Sister
-// lives in Tennessee") starts with that person instead and is correctly left alone.
-const RESIDENCE_VERB = /^(?:lives?|living|moved|move[sd]?|relocat\w*|resid\w*|stay(?:ing|s)?|home)\b/i;
-function isConflictingResidenceFact(f, currentState, allStates) {
-  if (!f || typeof f.text !== 'string' || !currentState || !Array.isArray(allStates)) return false;
-  if (!RESIDENCE_VERB.test(f.text)) return false;
-  return allStates.some(st => st !== currentState &&
-    new RegExp('\\b' + st.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(f.text));
-}
+// ---- Basics outrank memory — at ANSWER time only (founder's end-check, round 6, 2026-11-02; supersedes round 3) ----
+// Round 3 made saving Basics RETIRE (delete) a notebook fact that conflicted with the new value — the real
+// "Moved to Tennessee…" fact vanished after a state edit, and a second test fact the same way, both silently, with
+// no notice anywhere. The founder's rule was never "the fact goes away" — it was "the Basics field wins when they
+// disagree." Editing Basics must never delete, hide or rewrite a memory fact; the fact stays in "What Sim Sim
+// remembers" exactly as stored. The precedence rule below (in buildChatSystem's Memory rules) is now the ONLY
+// mechanism: the brain is told the current profile basics outrank a conflicting fact, every time it answers.
 
 // ---- Forgetting by voice or text ----
 const STOP = new Set(('a an the my his her their our your me i you it its that this these those about please of to for on in at is was are be ' +
@@ -340,5 +330,5 @@ module.exports = {
   CATEGORIES, looksSecret, wordCount, newFactId, newestFirst,
   identityLines, buildChatSystem, buildExtractorMessages, parseOps, applyOps,
   parseForget, matchFacts, plain, MAX_FACTS_IN_CONTEXT,
-  isLanguageResetMessage, isLanguagePreferenceFact, isConflictingResidenceFact
+  isLanguageResetMessage, isLanguagePreferenceFact
 };

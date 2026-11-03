@@ -91,25 +91,9 @@ function finishFacts(raw, extracts) {
 
 function topicTag(question) { return question.trim().split(/\s+/).slice(0, 5).join(' '); }
 
-// ---- Is this round worth a pick? (founder, 2026-10-29: everyone always answers; ONLY the pick option changes) ----
-// One minimal-effort call on the user's message alone, run in parallel with the three answers. The rubric is the founder's, verbatim.
-const PICK_RUBRIC = [
-  'You decide whether a Discussion message deserves "Pick this one" buttons. Reply with JSON only, in exactly this shape: {"pick": true} or {"pick": false}',
-  'pick=TRUE when the message asks for a substantive answer a person could choose a best version of — how-to and ways-to questions, should-I decisions,',
-  'advice, explanations (why / how does), comparisons, plans, real opinions on a real topic. Calibration: "tell me the ways to make a great coffee" → TRUE.',
-  'pick=FALSE for greetings, thanks, small talk, tests, one-word or fragmented unclear lines, and replies to a clarification.',
-  'Calibration: "what app gus" → FALSE; "hi guys" → FALSE; "ok" / "sure" / "thanks" → FALSE.'
-].join('\n');
+// The 2026-10-29 "only real questions get a pick" classifier (PICK_RUBRIC/buildPickCall/parsePick) is removed
+// (founder's end-check, round 6, 2026-11-02): every new question's three answers are pickable now, full stop —
+// diagnosed as the actual source of the "pick buttons disabled" bug (a round the classifier scored, or failed to
+// score, as not worth a pick), not a lock leaking from the previous question. See server.js's handleGroupAnswer.
 
-function buildPickCall(question) {
-  return [{ role: 'system', content: PICK_RUBRIC }, { role: 'user', content: question }];
-}
-// true / false from the classifier's JSON; null for anything else (the caller treats null as false and logs it).
-function parsePick(raw) {
-  if (typeof raw !== 'string') return null;
-  const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
-  if (a < 0 || b <= a) return null;
-  try { const v = JSON.parse(raw.slice(a, b + 1)).pick; return typeof v === 'boolean' ? v : null; } catch (e) { return null; }
-}
-
-module.exports = { MEMBERS, ROLES, CARDS, COMMON, NO_GUESSED_FIGURES, memberName, bookFor, buildCall, finishFacts, topicTag, buildPickCall, parsePick };
+module.exports = { MEMBERS, ROLES, CARDS, COMMON, NO_GUESSED_FIGURES, memberName, bookFor, buildCall, finishFacts, topicTag };

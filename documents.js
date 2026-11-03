@@ -11,7 +11,10 @@ const NAME_OK = /^[a-z0-9-]{1,60}-[a-f0-9]{8}\.pdf$/;
 
 // Fires ONLY on an explicit file ask ("make a PDF", "as a file", "a document I can download", "PDF file").
 // An ordinary list or question stays a normal chat answer.
-const FILE_ASK = /\bpdfs?\b|\b(?:as|into|in) an? (?:file|document|doc)\b|\b(?:document|doc|guide|list|file|handout|sheet|checklist)\b[^.?!]{0,40}\b(?:i can |to )?download\b|\bdownload(?:able)? (?:file|document|doc|version|copy)\b|\b(?:make|create|give|turn|put|save|export)\b[^.?!]{0,30}\b(?:a|an|into|as) (?:\w+ ){0,2}(?:file|document)\b/i;
+// (?:[\w-]+ ){0,2}, not (?:\w+ ){0,2}: \w stops at a hyphen, so a qualifier like "one-page" or "two-page" between
+// the article and "document"/"file" used to break every split of the match (round 7 end-check, 2026-11-02 —
+// "make me a one-page document about the benefits of walking" fell all the way through to a plain chat answer).
+const FILE_ASK = /\bpdfs?\b|\b(?:as|into|in) an? (?:file|document|doc)\b|\b(?:document|doc|guide|list|file|handout|sheet|checklist)\b[^.?!]{0,40}\b(?:i can |to )?download\b|\bdownload(?:able)? (?:file|document|doc|version|copy)\b|\b(?:make|create|give|turn|put|save|export)\b[^.?!]{0,30}\b(?:a|an|into|as) (?:[\w-]+ ){0,2}(?:file|document)\b/i;
 const NOT_A_FILE = /\b(?:what is|what's|how do i (?:open|read|edit|merge|sign|compress)|convert (?:this|my)|read (?:this|my|the)|open (?:this|my|the))\b[^.?!]*\bpdf\b/i;
 function wantsDocument(message) {
   const t = String(message || '');

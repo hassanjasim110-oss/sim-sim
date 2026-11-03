@@ -340,16 +340,11 @@ async function handleProfileSave(req, res) {
   book.profile && book.profile.face ? { face: book.profile.face } : {},       // and Sim Sim's face
   book.profile && book.profile.botFaces ? { botFaces: book.profile.botFaces } : {});   // and the two Discussion bots' faces
   if (!Array.isArray(book.facts)) book.facts = [];
-  // The latest Basics edit is the truth (founder's end-check, round 3, 2026-11-02): saving Basics retires any
-  // notebook fact that reads as a residence statement for a DIFFERENT state than the one just saved — not only
-  // when state itself changed. The demonstrated live bug had state as Idaho the whole time, with a "moved to
-  // Tennessee" fact that was never a prior Basics value, just a contradicting note that kept winning the answer.
-  // The prompt rule in memory.buildChatSystem is the other half, for whatever a false match here might miss.
-  {
-    const before = book.facts.length;
-    book.facts = book.facts.filter(f => !memory.isConflictingResidenceFact(f, profile.state, STATES));
-    if (book.facts.length !== before) console.log('[memory] retired a residence fact that conflicted with Basics state');
-  }
+  // Round 3 retired (deleted) a notebook fact that conflicted with a newly-saved Basics value — a real memory
+  // ("Moved to Tennessee on October 19, 2026") vanished silently after a state edit. Founder's end-check, round 6,
+  // 2026-11-02: editing Basics must NEVER delete, hide or rewrite a memory fact — book.facts is untouched here now.
+  // Precedence (the Basics field wins when the two disagree) happens at ANSWER time only, via the Memory rules in
+  // memory.buildChatSystem — the fact stays exactly as the user typed it in "What Sim Sim remembers."
   all[s.uid] = book;
   writeNotebooks(all);
   s.history = [];   // the next answer must come from the fresh profile/notebook, never an earlier turn in this chat
@@ -1534,6 +1529,18 @@ async function handleChatOpen(req, res) {
   enterThread(s, t);
   sendJson(res, 200, { chat: chats.withNamed(t) });
 }
+// A read-only look at a thread's own saved messages, with none of handleChatOpen's side effects (it never changes
+// which thread this session is "in"). Used only to reconcile a live view that may have dropped a completed answer
+// (founder's end-check, round 6, 2026-11-02): the live channel showed nothing, or a false failure, while the
+// server had already finished and saved the real turn — this is how the page catches up without a full reload.
+function handleChatTail(req, res) {
+  const s = getSession(req);
+  if (!s) return sendJson(res, 401, { error: 'not signed in' });
+  const id = new URL(req.url, 'http://x').searchParams.get('id');
+  const t = typeof id === 'string' ? chats.get(s.uid, id) : null;
+  if (!t) return sendJson(res, 404, { error: "I couldn't find that chat." });
+  sendJson(res, 200, { id: t.id, messages: t.messages });
+}
 // This session is now in thread t (the main Chat or a side chat): its OWN context, current picture and last receipt.
 // Nothing from another thread's conversation comes along. (The notebook is per user and shared by all of them.)
 function enterThread(s, t) {
@@ -2038,6 +2045,7 @@ function recordPick(s, turn, member) {
     if (b.profile && b.profile.taste && b.profile.taste[prev] > 0) { b.profile.taste[prev]--; writeNotebooks(all); }
     chats.removeReply(uid, prevWriteBack.threadId, prevWriteBack.messageId);
   }
+  const removedLive = prevWriteBack || null;   // so the page can take the OLD write-back bubble off screen too, live
   turn.pick = member;
   turn.writeBack = null;
   const all = readNotebooks(), b = bookFor(all, uid);
@@ -2060,10 +2068,13 @@ function recordPick(s, turn, member) {
   fs.renameSync(PREFS + '.tmp', PREFS);
   // The write-back: the picked answer, into the main chat, marked as the Discussion pick.
   const mt = chats.mainThread(uid);
-  const mid = chats.addDiscussionPick(uid, mt.id, turn.answers[member].text, turn.answers[member].name);
-  turn.writeBack = mid ? { threadId: mt.id, messageId: mid } : null;
+  const name = turn.answers[member].name, text = turn.answers[member].text;
+  const mid = chats.addDiscussionPick(uid, mt.id, text, name);
+  turn.writeBack = mid ? { threadId: mt.id, messageId: mid, name, text } : null;
   console.log('[group] pick recorded: ' + member);
-  return { taste: (bookFor(readNotebooks(), uid).profile || {}).taste || null };
+  // The Main chat page needs this to show the write-back live, without a reload (round 6 end-check, 2026-11-02) —
+  // switching to Main chat is a pure visibility toggle, it never re-fetches, so this is the only way it finds out.
+  return { taste: (bookFor(readNotebooks(), uid).profile || {}).taste || null, writeBack: turn.writeBack, removed: removedLive };
 }
 
 // The pick locks when the next question arrives: just the picked-answer learning (facts -> notebook, tasks -> open
@@ -2108,13 +2119,14 @@ async function handleGroupAnswer(req, res) {
   let turn = g.turns.get(qid), lockWork = null;
   if (!turn) {   // the first of the three calls opens the turn and locks the earlier pick
     for (const t of g.turns.values()) if (!t.locked) lockWork = lockTurn(s, t, key).catch(e => { console.error('[group] lock failed:', e.message); return null; });
-    turn = { qid, question, answers: {}, pending: {}, pick: null, writeBack: null, locked: false, history: groupHistory(g), pickable: false };
-    // Is this round a real question worth a pick? One cheap call, started now, in parallel with the three answers.
-    // A failed or junk answer means no pick (picks are the exception, not the rule).
-    turn.pickCheck = !key ? Promise.resolve(false) : askMeta(group.buildPickCall(question), key, { effort: 'minimal', maxTokens: SMALL_STEP_TOKENS })
-      .then(raw => { const v = group.parsePick(raw); if (v === null) console.error('[group] pick check gave no clear answer — no pick this round'); return v === true; },
-        e => { console.error('[group] pick check failed — no pick this round: ' + e.message); return false; })
-      .then(v => { turn.pickable = v; console.log('[group] this round ' + (v ? 'gets' : 'has no') + ' pick buttons'); return v; });
+    // Every new question is pickable (founder's end-check, round 6, 2026-11-02 — the "every NEW question's three
+    // answers are pickable" rule, replacing the 2026-10-29 small-talk filter). Diagnosed first: the "lock" the
+    // founder saw was never turn.locked leaking across questions — a fresh turn object is created right here,
+    // every time, always with its own locked:false — it was this very call's own PICK_RUBRIC classifier (a tiny,
+    // separate brain call) correctly-or-incorrectly scoring a round as not worth a pick, or failing/returning an
+    // unclear answer, either of which disabled all three buttons for that one round by DESIGN at the time. That
+    // classifier call (group.buildPickCall/parsePick) is no longer used to gate anything.
+    turn = { qid, question, answers: {}, pending: {}, pick: null, writeBack: null, locked: false, history: groupHistory(g), pickable: true };
     g.turns.set(qid, turn);
     if (g.turns.size > 30) g.turns.delete(g.turns.keys().next().value);
     console.log('[group] question received (' + question.length + ' characters)'); // never the words
@@ -2141,8 +2153,7 @@ async function handleGroupAnswer(req, res) {
     }
   }
   const a = turn.answers[member];
-  const pickable = await turn.pickCheck;   // a tiny call started before the answers: almost always done already
-  sendJson(res, 200, { member, name: a.name, role: group.ROLES[member], text: a.text, sources: a.sources, pickable,
+  sendJson(res, 200, { member, name: a.name, role: group.ROLES[member], text: a.text, sources: a.sources, pickable: turn.pickable,
     locked: lockWork ? await lockWork : null });
 }
 
@@ -2156,7 +2167,7 @@ async function handleGroupPick(req, res) {
   if (!turn.pickable) return sendJson(res, 409, { error: 'This round has no pick.' });   // small talk: nothing to pick, log or count
   if (turn.locked) return sendJson(res, 409, { error: 'That pick is locked.' });
   const result = recordPick(s, turn, data.member);   // can switch freely until the next question — each switch re-records
-  sendJson(res, 200, { ok: true, qid: turn.qid, member: turn.pick, taste: result.taste });
+  sendJson(res, 200, { ok: true, qid: turn.qid, member: turn.pick, taste: result.taste, writeBack: result.writeBack || null, removed: result.removed || null });
 }
 
 // This session's Discussion rounds (kept in session memory), so a page reload puts them back exactly: the question,
@@ -2434,6 +2445,7 @@ const server = http.createServer((req, res) => {
   if (req.url === '/api/chat/reset' && req.method === 'POST') return handleChatReset(req, res);
   if (req.url === '/api/chats' && req.method === 'GET') return handleChatsList(req, res);
   if (req.url === '/api/chats/open' && req.method === 'POST') return handleChatOpen(req, res).catch(fail);
+  if (req.url.startsWith('/api/chats/tail?') && req.method === 'GET') return handleChatTail(req, res);
   if (req.url === '/api/chats/new' && req.method === 'POST') return handleChatNew(req, res).catch(fail);
   if (req.url === '/api/actions/decide' && req.method === 'POST') return handleActionDecide(req, res).catch(fail);
   if (req.url === '/api/chats/react' && req.method === 'POST') return handleChatReact(req, res).catch(fail);

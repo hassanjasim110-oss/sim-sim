@@ -7,7 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap">
+<!-- Font (founder, 2026-11-03 — the ChatGPT typeface approach, Inter everywhere, weight-differentiated: this
+     overrides the project's older "Poppins headings, Verdana body" house rule for the Design 7 rebuild) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -109,7 +111,7 @@
 
   <section class="strip"><div class="wrap">
     <h2>SIM SIM can handle it All</h2>
-    <p>Study &amp; knowledge · Daily life · Work &amp; creating · Your connected apps · Voice &amp; memory — one assistant that does all of it together; you just talk.</p>
+    <p>Study &amp; knowledge · Daily life · Work &amp; creating · Voice &amp; memory — one assistant that does all of it together; you just talk.</p>
   </div></section>
 
   <section class="privacy"><div class="wrap">
@@ -143,9 +145,47 @@
       <p class="err" id="eAge" role="alert"></p>
     </div>
     <div class="field">
-      <label for="state">STATE</label>
-      <select id="state"><option value="">Choose your state</option></select>
+      <label id="countryLabel">COUNTRY</label>
+      <div class="dd" id="countryDd">
+        <button type="button" class="dd-btn" id="countryBtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="countryLabel countryValue">
+          <span id="countryValue" class="dd-value">Choose your country</span>
+          <svg class="dd-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="dd-panel" id="countryPanel" hidden>
+          <input type="text" class="dd-search" id="countrySearch" placeholder="Search countries…" autocomplete="off" aria-label="Search countries">
+          <div class="dd-list" id="countryList" role="listbox" aria-label="Country"></div>
+        </div>
+      </div>
+      <p class="err" id="eCountry" role="alert"></p>
+    </div>
+    <div class="field" id="stateField">
+      <label id="stateLabel">STATE</label>
+      <div class="dd" id="stateDd">
+        <button type="button" class="dd-btn" id="stateBtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="stateLabel stateValue">
+          <span id="stateValue" class="dd-value">Choose your state</span>
+          <svg class="dd-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="dd-panel" id="statePanel" hidden>
+          <input type="text" class="dd-search" id="stateSearch" placeholder="Search states…" autocomplete="off" aria-label="Search states">
+          <div class="dd-list" id="stateList" role="listbox" aria-label="State"></div>
+        </div>
+      </div>
+      <input type="text" id="stateText" hidden maxlength="80" placeholder="State / Province / Region (optional)" autocomplete="address-level1">
       <p class="err" id="eState" role="alert"></p>
+    </div>
+    <div class="field">
+      <label id="languageLabel">LANGUAGE</label>
+      <div class="dd" id="languageDd">
+        <button type="button" class="dd-btn" id="languageBtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="languageLabel languageValue">
+          <span id="languageValue" class="dd-value">English</span>
+          <svg class="dd-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="dd-panel" id="languagePanel" hidden>
+          <input type="text" class="dd-search" id="languageSearch" placeholder="Search languages…" autocomplete="off" aria-label="Search languages">
+          <div class="dd-list" id="languageList" role="listbox" aria-label="Language"></div>
+        </div>
+      </div>
+      <p class="err" id="eLanguage" role="alert"></p>
     </div>
     <div class="row">
       <button class="textlink" id="cancelEdit" type="button" hidden>Cancel</button>
@@ -191,7 +231,7 @@
 <!-- ===== The app (signed in) ===== -->
 <div class="app" id="app" hidden>
 
-  <aside class="side">
+  <aside class="side" id="side">
     <div class="brand"><span class="avatar" aria-hidden="true">S</span>Sim Sim</div>
 
     <div class="gsearch" role="search">
@@ -253,8 +293,14 @@
     </div>
   </aside>
 
+  <!-- Mobile sidebar drawer backdrop (founder, 2026-11-04, phones ≤820px): dims the chat behind the open drawer;
+       inert (display:none) above that width, so it never affects the desktop layout. -->
+  <div class="side-backdrop" id="sideBackdrop"></div>
+
   <main class="main">
     <header class="top">
+      <button class="round menu-btn" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <h1 class="title" id="chatTitle">Sim Sim</h1>
       <div class="controls">
         <span class="test-pill" data-test-pill hidden>Test mode</span>
@@ -409,13 +455,6 @@
             <ul id="permFloor"></ul>
           </div>
           <p class="set-note">Saved logins are part of this: Sim Sim doesn't use them today, and using one is on the always-asks list, so it will ask every time.</p>
-        </section>
-
-        <section class="set-sec" data-sec="apps" aria-labelledby="setApps">
-          <h3 id="setApps">Connected apps</h3>
-          <div class="set-row"><span>Google<small>Gmail · Calendar · Drive · YouTube</small></span><span class="status">Not connected</span></div>
-          <div class="set-row"><span>Instagram</span><span class="status soon">Coming soon</span></div>
-          <div class="set-row"><span>Facebook</span><span class="status soon">Coming soon</span></div>
         </section>
 
         <section class="set-sec" data-sec="data" aria-labelledby="setData">
@@ -590,11 +629,26 @@
         <span id="attachName"></span>
         <button type="button" class="attach-x" id="attachRemove" aria-label="Remove the picture">×</button>
       </div>
+      <div class="attach-preview" id="attachVideoPreview" hidden>
+        <video id="attachVideoThumb" muted></video>
+        <span id="attachVideoName"></span>
+        <button type="button" class="attach-x" id="attachVideoRemove" aria-label="Remove the video">×</button>
+      </div>
       <p class="attach-err" id="attachErr" role="alert" hidden></p>
       <form class="cbox" id="form" autocomplete="off">
-        <button class="round attach" id="attach" type="button" aria-label="Show Sim Sim a picture" title="Show Sim Sim a picture">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-9 9"/></svg></button>
-        <input id="attachFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <div class="attach-menu-wrap">
+          <button class="round attach" id="attachMenuBtn" type="button" aria-label="Add a photo or video" title="Add a photo or video" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+          <div class="attach-menu" id="attachMenu" role="menu" hidden>
+            <button type="button" class="attach-menu-row" id="attachCamera" role="menuitem">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+              <span>Camera</span></button>
+            <button type="button" class="attach-menu-row" id="attachGallery" role="menuitem">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-9 9"/></svg>
+              <span>Gallery</span></button>
+          </div>
+        </div>
+        <input id="attachFile" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime" hidden>
         <button class="round attach" id="watchBtn" type="button" aria-label="Watch my screen" title="Watch my screen">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><circle cx="12" cy="10" r="2.2"/></svg></button>
         <textarea id="input" rows="1" placeholder="Talk or type to Sim Sim…" aria-label="Message" maxlength="4000"></textarea>
@@ -616,6 +670,27 @@
     <button type="button" class="mini-btn" id="mvClose" aria-label="Close the full view">Close</button>
   </div>
   <div class="mv-stage" id="mvStage"></div>
+</div>
+<!-- ===== Camera capture: take a photo (goes through Vision like a gallery photo) or record a short video
+     (attaches for inline playback only — Sim Sim never sees inside it) ===== -->
+<div class="camera-view" id="cameraView" hidden role="dialog" aria-modal="true" aria-label="Camera">
+  <div class="cam-stage">
+    <video id="camLive" autoplay playsinline muted></video>
+    <img id="camPhoto" alt="Captured photo" hidden>
+    <video id="camClip" controls hidden></video>
+    <span class="cam-rec" id="camRecDot" hidden aria-hidden="true">● Recording</span>
+  </div>
+  <p class="err" id="camErr" role="alert" hidden></p>
+  <div class="cam-bar" id="camLiveBar">
+    <button type="button" class="mini-btn" id="camCancel">Cancel</button>
+    <button type="button" class="round cam-shutter" id="camShutter" aria-label="Take a photo" title="Take a photo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/></svg></button>
+    <button type="button" class="mini-btn" id="camRecordBtn">Record video</button>
+  </div>
+  <div class="cam-bar" id="camPreviewBar" hidden>
+    <button type="button" class="mini-btn" id="camRetake">Retake</button>
+    <button type="button" class="mini-btn on" id="camUse">Use this</button>
+  </div>
 </div>
 <!-- ===== Screen Watch (see-only: Sim Sim never clicks or types) ===== -->
 <div class="screen-panel" id="screenPanel" hidden role="dialog" aria-label="Sim Sim is watching your screen">

@@ -129,12 +129,22 @@
     'monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month|o\'clock|\\d+\\s*(?:am|pm))\\b|' +
     '\\bmy (?:name|email|password|settings?|theme|voice|briefing|profile|account|age|state)\\b', 'i');
 
+  // "edit my last picture: add a blue square", "edit the photo, add a hat" — the user names the picture AND
+  // carries an instruction in the same breath (founder's end-check, 2026-11-04: this used to fall through to
+  // the general chat lane, which gave the status-guard honesty line instead of actually editing, since EDIT_LEAD
+  // only recognizes a change VERB at the very start — "edit my last picture:" isn't one of its verbs, and nothing
+  // skipped past that naming prefix to reach the real instruction after it). A genuine status QUESTION ("has the
+  // picture been edited?") never matches this — it has no instruction after the naming part, just a question mark.
+  const EDIT_NAMED_PICTURE = new RegExp(LEAD + "edit\\s+(?:my|the|this|that|our)?\\s*(?:last|current|latest)?\\s*(?:picture|photo|image|pic)\\b\\s*[:,-]?\\s*(.*)$", 'i');
+
   function editRequest(text) {
     if (typeof text !== 'string') return false;
     const t = tidy(text);
     if (!t || /^(?:what|why|how|when|where|who|whose|which|is|are|was|were|do|does|did|has|have|should)\b/i.test(t)) return false;
     if (NOT_EDIT.test(t) || VOICE_ASK.test(t)) return false;
     if (TAKE_OUT.test(t)) return true;
+    const named = t.match(EDIT_NAMED_PICTURE);
+    if (named && meaningful(named[1])) return true;
     const m = t.match(EDIT_LEAD);
     // the change has to say something: "add a dog", "make it real" — not a bare "delete that"
     return !!m && meaningful(m[1].replace(/\b(?:here|there|it|this|that|please)\b/gi, ' '));

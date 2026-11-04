@@ -40,14 +40,20 @@ const documents = require('./documents.js'); // the Document Lane: real PDF file
 const websites = require('./websites.js'); // the Website Lane: a real, working HTML page (sibling of the Document Lane), per user
 const reminders = require('./reminders.js'); // timed reminders: shown at the top of the chat when due (while the app is open)
 const actions = require('./actions.js');     // the Action Layer: Sim Sim's hands in its own app, under the user's Permissions
+const hearing = require('./hearing.js');     // the mishear dictionary: fixes known Chrome speech-recognition mishears before any lane reads the message
 const ARRIVED = Symbol('arrived');         // when a chat request arrived (set on the parsed body; JSON can't carry a Symbol)
 const VOICE = Symbol('voice');             // a voice note's saved file + transcript (set by handleChat, never by the request body)
+const VIDEO = Symbol('video');             // a camera/gallery video attachment's saved file (set by handleChat, never by the request body)
 const INFLIGHT = Symbol('inflight');       // THIS request's own cancel token (set by handleChat, never by the request body) —
 // sendReply checks this, not s.inflight directly, so a second concurrent request on the same session (another tab,
 // or the Screen Watch mini chat running alongside the main chat) can never make this one read the WRONG token.
+const HEARING = Symbol('hearing');         // this message's own { swaps, risky } from hearing.correct() (set by handleChat, never by the request body) —
+// carries the per-message hearing notes to whichever lane builds a brain-bound conversational message; never saved or shown.
 const VOICE_NO_TRANSCRIPT = '[voice note — no transcript]';
 const VOICENOTES_DIR = path.join(__dirname, 'data', 'voicenotes');
 const VOICE_MAX = 3 * 1024 * 1024;   // about three minutes of speech
+const VIDEOS_DIR = path.join(__dirname, 'data', 'videos');
+const VIDEO_MAX = 20 * 1024 * 1024;   // a short camera/gallery clip; inline playback only, Sim Sim never sees inside it
 const META_IMAGE_URL = 'https://api.meta.ai/v1/images/generations';
 const META_IMAGE_MODEL = 'muse-image-1.0'; // Meta's own image model (Muse Image), confirmed on this account's model list
 const IMAGE_FAIL = "I couldn't make that image right now.";
@@ -295,7 +301,7 @@ async function askMeta(messages, key, opts = {}) {
 }
 
 // ---- The notebook: one JSON file, one entry per user (keyed by the uid from the verified session) ----
-const { GENDERS, STATES, THEMES, BOT_ROLES, FACES } = require('./public/notebook-data.js');
+const { GENDERS, STATES, COUNTRIES, DEFAULT_COUNTRY, LANGUAGES, DEFAULT_LANGUAGE, THEMES, BOT_ROLES, FACES } = require('./public/notebook-data.js');
 const DATA_DIR = path.join(__dirname, 'data');
 const NOTEBOOKS = path.join(DATA_DIR, 'notebooks.json');
 
@@ -309,19 +315,38 @@ function writeNotebooks(all) {
   fs.renameSync(tmp, NOTEBOOKS); // write-then-swap, so a crash never leaves half a file
 }
 
-// Checks the six setup answers. Returns { profile } or { error } in plain words.
+// Checks the setup answers. Returns { profile } or { error } in plain words.
 function cleanProfile(d) {
   const callName = typeof d.callName === 'string' ? d.callName.replace(/[\u0000-\u001f]/g, '').trim() : '';
   if (callName.length < 1 || callName.length > 40) return { error: 'Tell me what to call you (1 to 40 characters).' };
   if (!GENDERS.includes(d.gender)) return { error: 'Pick a gender option.' };
   const age = Number(d.age);
   if (!Number.isInteger(age) || age < 5 || age > 120) return { error: 'Enter your age as a whole number from 5 to 120.' };
-  if (!STATES.includes(d.state)) return { error: 'Choose your state.' };
+  // Country (founder, 2026-11-04 — "Pretty dropdowns + Country + Language"): one of the standard list, placed above
+  // State. State then ADAPTS to it — United States keeps the 50-states-+-DC dropdown; any other country's state
+  // becomes free text ("State / Province / Region"), optional, never required.
+  const country = typeof d.country === 'string' ? d.country.trim() : '';
+  if (!COUNTRIES.includes(country)) return { error: 'Choose your country.' };
+  let state = typeof d.state === 'string' ? d.state.trim() : '';
+  if (country === DEFAULT_COUNTRY) {
+    if (!STATES.includes(state)) return { error: 'Choose your state.' };
+  } else {
+    if (state.length > 80) return { error: 'State / Province / Region is too long (80 characters max).' };
+  }
+  const language = typeof d.language === 'string' ? d.language : DEFAULT_LANGUAGE;
+  if (!LANGUAGES.some(l => l.code === language)) return { error: 'Pick a language.' };
   if (!Array.isArray(d.botNames) || d.botNames.length !== BOT_ROLES.length) return { error: 'Name both helper bots.' };
   const botNames = d.botNames.map(n => typeof n === 'string' ? n.trim().replace(/\s+/g, ' ') : '');
   if (!botNames.every(n => /^[A-Za-z0-9 ]{1,30}$/.test(n))) return { error: 'Bot names use 1 to 30 letters, numbers, or spaces.' };
   if (!THEMES.some(t => t.id === d.themeId)) return { error: 'Pick a theme.' };
-  return { profile: { callName, gender: d.gender, age, state: d.state, botNames, themeId: d.themeId } };
+  return { profile: { callName, gender: d.gender, age, country, state, language, botNames, themeId: d.themeId } };
+}
+// A profile saved before Country/Language existed (every founder/early account): read-time defaults only, never
+// written to disk — "a US state saved already" is exactly what means United States/English, per the founder's rule.
+function profileWithDefaults(p) {
+  if (!p) return p;
+  if (p.country && p.language) return p;
+  return Object.assign({}, p, { country: p.country || DEFAULT_COUNTRY, language: p.language || DEFAULT_LANGUAGE });
 }
 
 async function handleProfileSave(req, res) {
@@ -356,7 +381,7 @@ function handleProfileGet(req, res) {
   if (!s) return sendJson(res, 401, { error: 'not signed in' });
   const book = readNotebooks()[s.uid];
   if (!book || !book.profile) return sendJson(res, 404, { error: 'no profile' });
-  sendJson(res, 200, { profile: book.profile });
+  sendJson(res, 200, { profile: profileWithDefaults(book.profile) });
 }
 
 // ---- Image lane: Meta's Muse Image model draws; it never thinks or answers ----
@@ -495,6 +520,37 @@ async function editReply(req, res, s, data, message, picture) {
     out.image ? '[Sim Sim edited the picture as asked; the edited picture is showing in this chat.] ' + out.reply : out.reply);
   sendReply(res, s, data, message, picture, out);
   if (out.image && out.threadId) pictures.setThread(s.uid, out.image.url.split('/').pop(), out.threadId);
+}
+
+// Screen Watch's own edit path (founder's end-check round 5, 2026-11-03): an edit instruction on the shared
+// screenshot ("add an arrow pointing to X") used to always fall through to Vision — isMainChat(data) is false for
+// every Screen Watch message (data.screen === true), and the main chat's edit check above is gated on it, so the
+// edit lane was NEVER reached here; the brain, asked to edit with no edit tool, correctly (if unhelpfully) said so
+// in words, on repeat. Fixed by routing an edit instruction straight to the SAME editImage/saveImage/pictures.add
+// primitives the main chat's edit lane uses, using THIS turn's fresh snapshot as the source — never touching
+// s.currentImage, so a Screen Watch edit can never leak into (or be leaked into by) the Main chat's own picture
+// slot, the one thing the main lane's reuse-as-is would have broken. There is always a fresh snapshot here (ask()
+// takes one at the moment it sends), so EDIT_NO_PHOTO never applies to this path.
+async function answerScreenEdit(s, message, picture) {
+  const key = (process.env.META_API_KEY || '').trim();
+  if (!key) return { reply: STUB_REPLY, stub: true };   // STUB RULE: no other AI, ever
+  let png;
+  try { png = await editImage(message, picture.dataUrl, key); }   // the user's own words are the instruction
+  catch (e) {
+    console.error('[edit] ' + new Date().toLocaleTimeString() + ' (screen watch) failed: ' + e.message); // never the words, never the picture
+    return { reply: EDIT_FAIL };
+  }
+  const name = saveImage(s, png);
+  pictures.add(s.uid, name, 'edited');   // "Your pictures" — a deliberate, asked-for edit, not an ambient frame
+  console.log('[edit] ' + new Date().toLocaleTimeString() + ' (screen watch) edited (' + Math.round(png.length / 1024) + ' KB)');
+  return { reply: EDIT_DONE, image: { url: '/api/images/' + name, subject: 'edited picture' } };
+}
+async function screenEditReply(req, res, s, data, message, picture) {
+  const out = await answerScreenEdit(s, message, picture);
+  out.process = out.stub ? { stub: true } : { usedEdit: out.image ? 'screen' : 'screen-failed' };
+  rememberTurn(s, '[shared a screen snapshot] ' + message,
+    out.image ? '[Sim Sim edited the shared screen picture as asked; the edited picture is showing here.] ' + out.reply : out.reply);
+  sendReply(res, s, data, message, picture, out);
 }
 
 function rememberTurn(s, message, reply) {
@@ -748,6 +804,18 @@ const SCREEN_NOTE = '\nThe picture is a fresh snapshot of the screen the user ch
 // Freeze & Ask: the user drew a red circle on the frozen snapshot.
 const CIRCLE_NOTE = '\nThe user drew a red circle on the snapshot. Answer about the circled part FIRST, then add anything else that helps.';
 
+// The mishear dictionary's per-message note (founder, 2026-11-04 — "Hearing: the mishear dictionary"): the SAME
+// pattern as the video-honesty note above — rides only what the brain reads for THIS message, never the saved or
+// shown text. A hard swap tells the brain what was corrected; a risky item (a teen/ty pair neither reading was
+// swapped for) tells it to read the number back in digits if it carries the action (HEARING rule 1 in memory.js).
+function hearingNotes(data) {
+  const h = data[HEARING];
+  if (!h || (!h.swaps.length && !h.risky.length)) return '';
+  const parts = h.swaps.map(sw => ' [hearing: "' + sw.from + '" read as "' + sw.to + '"]')
+    .concat(h.risky.map(r => ' [hearing: ' + r.note + ']'));
+  return parts.join('');
+}
+
 // Returns { dataUrl, kb } for a valid png/jpeg/webp up to 5 MB, { error } for a bad one, or null for no picture.
 function parsePicture(raw) {
   if (raw === undefined || raw === null) return null;
@@ -767,8 +835,9 @@ async function handleChat(req, res) {
   const arrived = Date.now();   // the receipt's clock starts when the request arrives (server time)
   const s = getSession(req);
   if (!s) return sendJson(res, 401, { error: 'not signed in' });
-  // room for one picture of up to 5 MB (base64 is about a third bigger); the picture rides in its own field, data.image
-  const data = await readJson(req, res, 7500000, PICTURE_TOO_LARGE);
+  // room for one picture of up to 5 MB, or one short video of up to 20 MB (base64 is about a third bigger); whichever
+  // rides, it is in its own field (data.image or data.video) — never both in the same message.
+  const data = await readJson(req, res, 27500000, 'That picture or video is too large — try a smaller one.');
   if (!data) return;
   data[ARRIVED] = arrived;   // a Symbol key: a request body can never set it
   // Send-becomes-Stop (founder, 2026-10-31): this turn can be cancelled by POST /api/chat/stop while it is running.
@@ -788,7 +857,39 @@ async function handleChat(req, res) {
     message = vn.transcript || VOICE_NO_TRANSCRIPT;
     data[VOICE] = vn;
   }
-  if (!message && !picture) return sendJson(res, 400, { error: 'Empty message.' });
+  // A camera/gallery video (1-on-1 chat only): saved for inline playback only. Sim Sim never receives the file and
+  // must never claim to have watched it — a caption-less video gets one fixed, honest reply below (no brain call);
+  // a captioned one flows on to the general chat lane, which answers the WORDS only (answerChat injects an honesty
+  // note into what the brain sees, never into what is saved or shown).
+  if (data.video !== undefined && data.video !== null) {
+    if (!isMainChat(data) || picture) return sendJson(res, 400, { error: 'Videos are for the main chat.' });
+    const vid = saveVideo(s.uid, data.video);
+    if (vid.error) return sendJson(res, vid.status || 400, { error: vid.error });
+    data[VIDEO] = vid;
+  }
+  // The mishear dictionary (founder, 2026-11-04 — "Hearing: the mishear dictionary"): runs right here, on the
+  // final assembled text (typed or a voice transcript), BEFORE any routing or lane below ever reads it. The
+  // corrected text is what gets saved and shown — what the user meant is what the chat shows. data[HEARING]
+  // carries the swaps/risky list to whichever lane builds a brain-bound message (hearingNotes(), above);
+  // never saved, never shown, never sent as JSON (a Symbol key can't be).
+  if (message) {
+    const hb = bookFor(readNotebooks(), s.uid);
+    const known = [];
+    if (hb.profile) {
+      if (hb.profile.callName) known.push(hb.profile.callName);
+      if (Array.isArray(hb.profile.botNames)) known.push(...hb.profile.botNames);
+    }
+    (hb.facts || []).forEach(f => known.push(f.text));
+    const h = hearing.correct(message, known);
+    message = h.text;
+    data[HEARING] = h;
+  }
+  if (!message && !picture && !data[VIDEO]) return sendJson(res, 400, { error: 'Empty message.' });
+  if (data[VIDEO] && !message) {
+    const reply = "Got it — your video is here in the chat. I can't see inside video files, so tell me about it if you'd like me to answer about it.";
+    return sendReply(res, s, data, message, null, { reply,
+      process: { command: 'A video with no caption — answered with a fixed honest line (no brain call)' } });
+  }
   // Any new message instead of a choice CANCELS a held action (an allowance card): it never fires later in the background.
   if (s.pendingAction) { s.pendingAction = null; console.log('[actions] a held action was cancelled by a new message'); }
   console.log('[chat] ' + new Date().toLocaleTimeString() + ' message received (' + message.length + ' characters' +
@@ -826,6 +927,19 @@ async function handleChat(req, res) {
   // With a picture: a verb-led CHANGE instruction ("add a dog here") edits it; anything else — above all a question —
   // goes straight to the brain with the picture (Vision). When in doubt it is Vision: never change a photo on a guess.
   if (picture) {
+    if (data.screen === true && message) {
+      // Screen Watch's own make/edit lane (round 5B end-check, 2026-11-03): an edit instruction ("add an arrow
+      // pointing to X") goes to the edit path, exactly as round 5 fixed. A MAKE request — including the panel's
+      // own coached "make a picture showing X" wording, which the brain composes from the same "ask for a picture
+      // in one message" honesty rule used everywhere else in the app — was never checked at all here before: with
+      // a screenshot always attached, the routing fell straight to Vision, which answered it as a where-is search
+      // instead (the exact lane confusion the live report caught). drawReply is already screen-watch-safe as it
+      // stands — it only touches s.currentImage/saves to a thread when isMainChat(data), both false here — so it
+      // needs no screen-specific variant, unlike the edit lane.
+      if (editRequest(message)) return screenEditReply(req, res, s, data, message, picture);
+      const img = TEXT_DELIVERABLE.test(message) ? null : imageRequest(message);
+      if (img && img.subject) return drawReply(req, res, s, data, message, img.subject);
+    }
     if (isMainChat(data) && message && editRequest(message)) return editReply(req, res, s, data, message, picture);
     if (isMainChat(data)) s.currentImage = { dataUrl: picture.dataUrl };   // the newest picture in this chat
     return answerChat(req, res, s, data, message, picture);
@@ -961,7 +1075,7 @@ async function handleChat(req, res) {
   // A request for TEXT to copy ("give me a prompt for an image of…", "give it with a copy button") is never a picture to make
   // or edit — it goes to the brain, which writes the text in a block (founder, 2026-10-30). The picture lanes themselves are unchanged.
   const wantsText = TEXT_DELIVERABLE.test(message);
-  if (isMainChat(data) && !wantsText && editRequest(message) && !(s.pending && s.pending.type === 'imageSubject') &&
+  if (isMainChat(data) && !data[VIDEO] && !wantsText && editRequest(message) && !(s.pending && s.pending.type === 'imageSubject') &&
     !loops.parseDone(message) && !memory.parseForget(message)) {
     s.pending = null;
     return editReply(req, res, s, data, message, null);
@@ -1079,7 +1193,7 @@ function sendReply(res, s, data, message, picture, out) {
     try {
       const saved = chats.saveTurn(s.uid, data.thread, {
         message, picture: picture ? (data.screen === true ? 'screen' : 'picture') : null, secret: memory.looksSecret(message), quote: cleanQuote(data.quote),
-        voice: data[VOICE] || null
+        voice: data[VOICE] || null, video: data[VIDEO] || null
       }, out);
       out.threadId = saved.threadId;
       out.messageIds = saved.messageIds;   // for reactions and delete on the page
@@ -1125,7 +1239,7 @@ async function answerChat(req, res, s, data, message, picture) {
         { role: 'system', content: memory.buildChatSystem(book.profile, book.facts, openLoops, null, settings.settingsOf(book), data.tz) + VISION_NOTE +
           (data.screen === true ? SCREEN_NOTE : '') + (data.circled === true ? CIRCLE_NOTE : '') },
         ...s.history.slice(-6),
-        { role: 'user', content: [{ type: 'text', text: message || 'What does this picture show?' }, { type: 'image_url', image_url: { url: picture.dataUrl } }] }
+        { role: 'user', content: [{ type: 'text', text: (message || 'What does this picture show?') + hearingNotes(data) }, { type: 'image_url', image_url: { url: picture.dataUrl } }] }
       ], key);
       result = { lane: 'picture', reply };
       Object.assign(proc, { usedNotebook: Math.min(book.facts.length, memory.MAX_FACTS_IN_CONTEXT), openLoops: openLoops.length, usedVision: true, wrote: true });
@@ -1144,10 +1258,13 @@ async function answerChat(req, res, s, data, message, picture) {
     // One overall 45s deadline on the whole lane means the chat always gets an answer, even a plain one. On a
     // timeout the underlying call is left running, unobserved — harmless, the same "Stop only guarantees the answer
     // never lands" pattern already used elsewhere — it just never gets to reply with whatever it eventually returns.
+    // A captioned video: the brain sees the WORDS only, plus one honesty note so it never guesses at the footage —
+    // the note rides only what the brain reads, never the saved/shown message (that stays the user's own words).
+    const forBrain = (data[VIDEO] && message ? message + ' [A video is attached to this message. You cannot see inside video files — if asked about its content, say so plainly.]' : message) + hearingNotes(data);
     const race = await raceOrTimeout(answers.answer({
       ask: (messages, opts) => askMeta(messages, key, opts),
       searchWeb: prompt => searchWebUrls(prompt, key),
-      message, history: s.history, profile: book.profile, facts: book.facts, loops: loops.openSorted(book.loops).slice(0, 20),
+      message: forBrain, history: s.history, profile: book.profile, facts: book.facts, loops: loops.openSorted(book.loops).slice(0, 20),
       settings: settings.settingsOf(book), tz: data.tz
     }), CHAT_CEILING_MS);
     if (race.timedOut) {
@@ -1166,7 +1283,7 @@ async function answerChat(req, res, s, data, message, picture) {
   if (guardian) writeNotebooks(fresh);
   console.log('[answer] ' + result.lane + (result.from ? ' (' + result.from + ')' : '') + (result.sources ? ', sources: ' + result.sources.length : ''));
   // the short conversation context keeps words only — the picture itself is not kept
-  const shared = picture ? (data.screen === true ? '[shared a screen snapshot] ' : '[shared a picture] ') : data[VOICE] ? '[voice note] ' : '';
+  const shared = picture ? (data.screen === true ? '[shared a screen snapshot] ' : '[shared a picture] ') : data[VOICE] ? '[voice note] ' : data[VIDEO] ? '[attached a video; its contents are not visible to you] ' : '';
   s.history.push({ role: 'user', content: shared + message }, { role: 'assistant', content: reply });
   if (s.history.length > 12) s.history.splice(0, s.history.length - 12); // a short memory of this conversation only
 
@@ -1275,6 +1392,35 @@ function handleVoiceNoteFile(req, res, name) {
   if (!file || !fs.existsSync(file)) return sendJson(res, 404, { error: "I couldn't find that voice note." });
   const buf = fs.readFileSync(file);
   res.writeHead(200, { 'Content-Type': VOICE_TYPES[m[1]], 'Content-Length': buf.length, 'Cache-Control': 'private, no-store' });
+  res.end(buf);
+}
+
+// ---- Camera/gallery videos: saved per user in data/videos/<user>/, served ONLY to their owner. Inline playback only
+// (addUser/.user video in app.js) — the brain never receives the file and must never claim to have seen it (the
+// honesty note is injected into the general chat lane in answerChat, below).
+const VIDEO_TYPES = { webm: 'video/webm', mp4: 'video/mp4', mov: 'video/quicktime' };
+function videoDir(uid) { return path.join(VIDEOS_DIR, String(uid).replace(/[^\w.@-]/g, '_')); }
+function saveVideo(uid, raw) {
+  const m = typeof raw === 'string' && raw.match(/^data:video\/(webm|mp4|quicktime)(?:;codecs=[\w.,="\- ]*)?;base64,([A-Za-z0-9+/]+=*)$/);
+  if (!m) return { error: 'Sim Sim can attach MP4, WebM or MOV videos.' };
+  const bytes = Buffer.from(m[2], 'base64');
+  if (!bytes.length) return { error: 'That video was empty.' };
+  if (bytes.length > VIDEO_MAX) return { error: 'That video is too large — try a shorter one.', status: 413 };
+  const ext = m[1] === 'quicktime' ? 'mov' : m[1];
+  const name = crypto.randomBytes(10).toString('hex') + '.' + ext;
+  fs.mkdirSync(videoDir(uid), { recursive: true });
+  fs.writeFileSync(path.join(videoDir(uid), name), bytes);
+  console.log('[video] saved (' + Math.round(bytes.length / 1024) + ' KB)');   // never the content
+  return { name };
+}
+function handleVideoFile(req, res, name) {
+  const s = getSession(req);
+  if (!s) return sendJson(res, 401, { error: 'not signed in' });
+  const m = String(name).match(/^[a-f0-9]{20}\.(webm|mp4|mov)$/);
+  const file = m && path.join(videoDir(s.uid), name);
+  if (!file || !fs.existsSync(file)) return sendJson(res, 404, { error: "I couldn't find that video." });
+  const buf = fs.readFileSync(file);
+  res.writeHead(200, { 'Content-Type': VIDEO_TYPES[m[1]], 'Content-Length': buf.length, 'Cache-Control': 'private, no-store' });
   res.end(buf);
 }
 
@@ -1667,6 +1813,16 @@ function planAction(s, name, args, ctx) {
       const v = actions.VIEWS.find(x => x === raw || x === q) ||
         actions.VIEWS.find(x => q && actions.VIEW_NAMES[x].toLowerCase().replace(/^the\s+/, '').includes(q));
       if (!v) return { error: 'There is no screen called ' + (args.view || 'that') + '.' };
+      // The Browser view needs its own honest wording (round 7B end-check, 2026-11-02): "Opening the Browser."
+      // claimed the browser itself was opening, when all that ever happens here is showing its panel — the real
+      // browser session stays Closed until a page actually opens (a look-up, or a web address typed into the
+      // panel). The generic "Opening X." line is correct for every OTHER view (they just show content); only
+      // this one describes something that isn't true yet.
+      if (v === 'browser') {
+        return { text: 'Show the Browser panel', run: async () =>
+          ({ ok: true, detail: 'Showed the Browser panel', effects: [{ type: 'view', view: v }],
+            say: "Here's the Browser panel — the browser itself is closed until you open a page here or ask me to look something up." }) };
+      }
       return { text: 'Open ' + actions.VIEW_NAMES[v], run: async () =>
         ({ ok: true, detail: 'Opened ' + actions.VIEW_NAMES[v], say: 'Opening ' + actions.VIEW_NAMES[v] + '.', effects: [{ type: 'view', view: v }] }) };
     }
@@ -1883,7 +2039,7 @@ async function actionLane(req, res, s, data, message) {
   const now = '\n\nTHE APP RIGHT NOW: the user is in ' + (t ? (t.kind === 'side' ? "the side chat '" + t.title + "'" : "the main Chat ('" + t.title + "')") + ', ' + t.messages.length + ' messages' : 'a new, empty main Chat') +
     '. Side chats: ' + (sides.join(', ') || 'none') + '. Starter faces: ' + FACES.map(f => f.id).join(', ') + '. Themes: ' + THEMES.map(x => x.name).join(', ') + '.';
   const messages = [{ role: 'system', content: memory.buildChatSystem(book.profile, book.facts, loops.openSorted(book.loops).slice(0, 20), null, undefined, data.tz) + actions.RULES + now },
-    ...(s.history || []).slice(-6), { role: 'user', content: message }];
+    ...(s.history || []).slice(-6), { role: 'user', content: message + hearingNotes(data) }];
   let first;
   try { first = await askMeta(messages, key, { tools: actions.TOOLS, raw: true }); }
   catch (e) { console.error('[actions] the brain call failed: ' + e.message); return false; }   // the usual lanes answer instead
@@ -2194,7 +2350,7 @@ async function handleBotNames(req, res) {
   if (!b.profile) return sendJson(res, 404, { error: 'no profile' });
   b.profile.botNames = names;
   writeNotebooks(all);
-  sendJson(res, 200, { profile: b.profile });
+  sendJson(res, 200, { profile: profileWithDefaults(b.profile) });
 }
 
 // ---- Morning briefing: today's (from the day-cache, or made fresh in ONE brain call and cached) ----
@@ -2260,7 +2416,7 @@ async function handleSettings(req, res, save) {
     book.settings = Object.assign(before, changes);
     writeNotebooks(all);
   }
-  sendJson(res, 200, { settings: settings.settingsOf(book), profile: book.profile, vaultReady: !!vault.key(),
+  sendJson(res, 200, { settings: settings.settingsOf(book), profile: profileWithDefaults(book.profile), vaultReady: !!vault.key(),
     actions: { groups: actions.GROUPS, floor: actions.FLOOR_LIST } });   // Settings → Permissions lists exactly these
 }
 
@@ -2476,6 +2632,8 @@ const server = http.createServer((req, res) => {
   if (req.url === '/api/reminders/done' && req.method === 'POST') return handleReminders(req, res, 'done').catch(fail);
   const vnm = req.method === 'GET' && req.url.match(/^\/api\/voicenotes\/([^/?]+)$/);
   if (vnm) return handleVoiceNoteFile(req, res, vnm[1]);
+  const vidm = req.method === 'GET' && req.url.match(/^\/api\/videos\/([^/?]+)$/);
+  if (vidm) return handleVideoFile(req, res, vidm[1]);
   const docm = req.method === 'GET' && req.url.match(/^\/api\/documents\/([^/?]+)(\?view=1)?$/);
   if (docm) return handleDocumentFile(req, res, docm[1], !!docm[2]);
   const sitem = req.method === 'GET' && req.url.match(/^\/api\/websites\/([^/?]+)(\?dl=1)?$/);

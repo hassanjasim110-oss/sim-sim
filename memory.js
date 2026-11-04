@@ -2,7 +2,7 @@
 // The brain forgets between calls; the notebook file IS the memory.
 // Learning uses the same Meta brain (one small extraction call); everything here is plain code.
 const crypto = require('crypto');
-const { THEMES } = require('./public/notebook-data.js');
+const { THEMES, LANGUAGES, DEFAULT_LANGUAGE } = require('./public/notebook-data.js');
 const voiceMod = require('./voice.js');
 
 const CATEGORIES = ['people', 'dates', 'places', 'preferences', 'possessions', 'plans'];
@@ -131,6 +131,18 @@ const ANSWER_RULES = '\n\nHow you answer:' +
   '\n- If asked about something you have no record of (a made-up event, award, person or rule), don\'t play along — say plainly you have no record of it.' +
   '\n- If the message is one word or unclear, reply naturally or ask one short clarifying question.';
 
+// HEARING (founder, 2026-11-04 — "the mishear dictionary"): Chrome's speech recognition hands over one final
+// transcript, no alternatives — hearing.js (server.js) already fixes the known mishears it can before you ever
+// see the message, and flags what it couldn't settle with a bracketed [hearing: ...] note on THIS message only
+// (never saved, never shown — just for you, this one time). These rules cover what a dictionary can't: reading
+// back a number so a flip is caught, asking back when the ask itself is still unclear, taking a correction
+// cleanly, and telling real-word homophones apart by sense.
+const HEARING_RULES = '\n\nHEARING — your ears are a speech recognizer with no alternatives and no confidence score, so a word can be wrong without anyone knowing:' +
+  '\n- READBACK: when you create or change a loop, a reminder, or the briefing time, echo the load-bearing slots in the confirmation itself — what + when (weekday + date + time, in digits) + who/where if there is one. Part of the normal confirmation line, never a separate check.' +
+  '\n- ASK-BACK: if, after correction, the word carrying the whole request is still unclear — or a [hearing: ...] note flags a risky number that would change the action — ask ONE short question. If ANY fragment of the message is interpretable (a name-shaped word, a number, a place, a recognizable verb), lead with your best reading of THAT fragment ("Did you mean Summaiya?", "Did you mean 50 minutes?") — never a bare echo when you can offer a guess. Only pure noise, with no interpretable fragment at all, may fall back to echoing it back ("I didn\'t catch that one — what did you mean by \'…\'?"). Never ask back twice in a row: if the user repeats themselves or pushes on, go with your best reading and say the assumption in one short line instead.' +
+  '\n- CORRECTIONS: "no, I meant X", "not X — Y", "I said X" replaces X in the CURRENT ask and re-runs it. Confirm in one line ("Got it — Tuesday, not Monday."). Never defend your first hearing, never re-ask the whole question.' +
+  '\n- HOMOPHONES: their/there/they\'re, your/you\'re, its/it\'s, weather/whether, right/write, hear/here, mail/male, week/weak, buy/by/bye, know/no, see/sea, cell/sell, peace/piece, plain/plane, hour/our — these are never in a dictionary; read them by grammar and sense, not by the literal word, and ask back only when both readings are genuinely plausible AND the choice changes what you do.';
+
 // The current moment, in the user's own timezone when the page reported one (founder, 2026-10-31 — the brain had the
 // date but never the clock). Rebuilt fresh on every call: never cached, never stored, never learned as a notebook
 // fact — it is a clock, not a fact. A bad or missing tz falls back to the server's own local time rather than fail.
@@ -145,17 +157,37 @@ function nowLine(tz) {
   return 'Right now for the user: ' + dateStr + ', ' + timeStr + '.';
 }
 
+// The saved Language setting's instruction (founder, 2026-11-04 — "Fix: Language setting must drive replies").
+// Pulled out on its own, exported, so EVERY brain call that composes a Sim Sim-authored reply can carry it — not
+// just the ones that already happen to build their system prompt through buildChatSystem(). The break this build
+// fixes: answers.js's `compose()` (the "precise"/high-stakes lane, used whenever the classify step treats the
+// question as needing a checked specific — plausibly including an ordinary fact like "capital of France") built
+// its OWN system prompt from identityLines() + its own rules, never buildChatSystem() — so the language instruction
+// never reached the brain at all for any question landing in that lane, silently, with no error anywhere.
+function languageLine(profile) {
+  const langCode = (profile && profile.language) || DEFAULT_LANGUAGE;
+  const lang = LANGUAGES.find(l => l.code === langCode);
+  if (!lang || lang.code === DEFAULT_LANGUAGE) return '';   // English needs no instruction — it's the default voice already
+  const name = profile ? profile.callName : 'the user';
+  return '\n\nLanguage: reply to ' + name + ' in ' + lang.name + ' for this whole answer, unless ' + name +
+    ' writes to you in a different language — then answer in that language instead.';
+}
+
 // ---- What the brain reads before answering: profile basics + the notebook ----
 // who: optional first line for a Group Chat helper bot (the default is Sim Sim itself).
 function buildChatSystem(profile, facts, openLoops, who, settings, tz) {
   const name = profile ? profile.callName : 'the user';
   let s = (who || 'You are Sim Sim, ' + name + "'s personal assistant.") + ' Answer in short, warm, plain sentences. Be helpful.';
-  s += '\n\n' + identityLines(!!who) + ANSWER_RULES;
+  s += '\n\n' + identityLines(!!who) + ANSWER_RULES + HEARING_RULES;
   if (!who) s += setupBlock(profile, settings);   // Sim Sim's own setup — never for a Discussion bot's system prompt
   s += '\n\n' + nowLine(tz);
   if (profile) {
     s += '\n\nProfile basics: name ' + name + ' · gender: ' + profile.gender + ' · age: ' + profile.age + ' · lives in ' + profile.state + '.';
   }
+  // Language (founder, 2026-11-04 — "Pretty dropdowns + Country + Language"): real wiring, not a notebook fact that
+  // could be forgotten or contradicted — read straight from the profile, every call, Sim Sim only (never a Discussion
+  // bot's system prompt). English needs no instruction at all; it's already the default voice of every reply.
+  if (!who) s += languageLine(profile);
   const list = newestFirst(facts).slice(0, MAX_FACTS_IN_CONTEXT).map(f => '- [' + f.category + '] ' + f.text).join('\n');
   s += '\n\n' + name + "'s notebook — the ONLY things you remember about " + name + "'s life (newest first):\n" + (list || '(nothing yet)');
   s += '\n\nMemory rules:' +
@@ -330,5 +362,5 @@ module.exports = {
   CATEGORIES, looksSecret, wordCount, newFactId, newestFirst,
   identityLines, buildChatSystem, buildExtractorMessages, parseOps, applyOps,
   parseForget, matchFacts, plain, MAX_FACTS_IN_CONTEXT,
-  isLanguageResetMessage, isLanguagePreferenceFact
+  isLanguageResetMessage, isLanguagePreferenceFact, languageLine
 };

@@ -116,6 +116,9 @@
     const r = new SR();
     r.continuous = true;
     r.interimResults = true;
+    // Listens in the user's chosen Language (Profile → Edit basics; founder, 2026-11-04 — "Pretty dropdowns +
+    // Country + Language"), English before a profile has loaded or when none was ever picked.
+    r.lang = window.SimSimSetup ? window.SimSimSetup.recognitionLang() : 'en-US';
     r.onstart = () => {
       if (rec !== r) return;
       running = true;
@@ -131,6 +134,9 @@
       } else if (e.error === 'audio-capture') {
         needTap = true;                                                   // no microphone right now: a tap tries again
         chat.caption('No microphone was found. Plug one in, then tap the pill to listen.', true);
+      } else if (e.error === 'language-not-supported') {
+        needTap = true;   // never fails silently, and never loops retrying a language the browser can't hear
+        chat.caption("This browser can't listen in the language you picked. Pick a different one in Profile → Edit basics, or switch back to English.", true);
       } else if (e.error === 'no-speech') {
         failCount = 0;                                                    // the service works; it just heard nothing
       } else if (e.error !== 'aborted') {

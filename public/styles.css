@@ -10,35 +10,49 @@
   --busy-bg:#fff0d9; --busy-fg:#8a4b00; --busy-dot:var(--accent);         /* Thinking / Speaking pill */
   --err-bg:#fdecea; --err-fg:#9b2c1f;
 
-  /* light and depth */
-  --glow:color-mix(in srgb,var(--accent) 6%,transparent);                 /* soft accent tint behind the content — kept faint on purpose */
-  --shadow-c:color-mix(in srgb,var(--text) 11%,transparent);              /* shadow color */
-  --shadow-c2:color-mix(in srgb,var(--text) 17%,transparent);             /* deeper shadow color */
-  --ring:rgba(255,255,255,.5);                                            /* 1px inner highlight */
-  --card-grad:linear-gradient(180deg,color-mix(in srgb,var(--surface) 94%,#fff),var(--surface));  /* surface, lit from the top */
-  --shadow-1:0 1px 2px var(--shadow-c),0 1px 1px var(--shadow-c);         /* contact shadow */
-  --shadow-2:0 12px 32px -10px var(--shadow-c);                           /* ambient shadow */
-  --shadow-2-deep:0 18px 40px -12px var(--shadow-c2);                     /* ambient shadow on hover */
-  --lift:inset 0 1px 0 var(--ring),var(--shadow-1),var(--shadow-2);       /* full card stack */
+  /* Design 7 (founder, 2026-11-02 — the ChatGPT-structure rebuild): flat surfaces, soft single shadows, a quiet
+     hairline border where the reference actually uses one — never the old inset-highlight + ambient-glow "lift"
+     stack, and never a dashed border anywhere. Every value below still reads off the theme's own tokens (--bg,
+     --side, --surface, --line, --text, --muted, --accent…, set per theme in notebook-data.js), so switching themes
+     still recolors this same flatter structure — nothing here is a hardcoded literal color. */
+  --glow:color-mix(in srgb,var(--accent) 3%,transparent);                 /* kept, fainter still — the reference has no glow at all */
+  --shadow-c:color-mix(in srgb,var(--text) 8%,transparent);               /* shadow color */
+  --shadow-c2:color-mix(in srgb,var(--text) 13%,transparent);             /* deeper shadow color, hover/modal only */
+  --ring:rgba(255,255,255,.5);                                            /* kept for focus rings only now */
+  --card-grad:var(--surface);                                             /* flat fill — no top-lit gradient sheen */
+  --shadow-1:0 1px 2px var(--shadow-c);                                   /* one soft contact shadow */
+  --shadow-2:0 10px 26px -12px var(--shadow-c);                           /* one soft ambient shadow */
+  --shadow-2-deep:0 20px 48px -16px var(--shadow-c2);                     /* modals, hover lift */
+  --lift:var(--shadow-1);                                                 /* cards: the one soft shadow, never an inset stack */
   --jewel:linear-gradient(140deg,var(--accent2),var(--accent));           /* avatars, mic */
-  --jewel-glow:0 4px 14px color-mix(in srgb,var(--accent) 35%,transparent);
+  --jewel-glow:0 3px 10px color-mix(in srgb,var(--accent) 22%,transparent);
   --primary-grad:linear-gradient(140deg,var(--primary-1),var(--primary-2));   /* buttons and badges that carry text */
-  --user-grad:linear-gradient(180deg,color-mix(in srgb,var(--user-bubble) 60%,var(--surface)),var(--user-bubble));
-  --sim-grad:linear-gradient(180deg,color-mix(in srgb,var(--sim-bubble) 94%,#fff),var(--sim-bubble));
-  --selected-bg:color-mix(in srgb,var(--accent) 13%,var(--side));
+  --user-grad:var(--bubble);                                              /* the user pill: one flat tint, no gradient */
+  --sim-grad:transparent;                                                 /* Sim Sim's answer: no bubble at all */
+  --selected-bg:color-mix(in srgb,var(--accent) 11%,var(--side));
   --scroll-thumb:color-mix(in srgb,var(--muted) 35%,transparent);
   --bot1-a:#4fb3a9; --bot1-b:#1f7f84;   /* helper bot avatars: Researcher (teal) */
   --bot2-a:#9a8be6; --bot2-b:#5b47c2;   /* Challenger (violet) */
 
-  /* type */
-  --font-display:'Poppins',Verdana,Geneva,sans-serif;
-  --font-body:Verdana,Geneva,sans-serif;
-  --text-size:16.5px;
-  --leading:1.6;
+  /* type — one scale, used identically on every screen: greeting/screen title, section heading, body, small meta.
+     Font (founder, 2026-11-03 — overrides PART A's old "Poppins headings, Verdana body" house rule for this
+     rebuild): the ChatGPT typeface approach, Inter everywhere for headings AND body alike, differentiated only
+     by weight — OpenAI's own interface font (OpenAI Sans) is proprietary and can't be shipped here; Inter is its
+     documented substitute and was ChatGPT's own font before that, so it's the correct stand-in. Headings sit at
+     600, UI labels (buttons, nav, badges) at 500, body at 400 — never the old Poppins-era 700/800. */
+  --font-display:'Inter',ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --font-body:'Inter',ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --text-size:15.5px;
+  --leading:1.65;
+  --size-title:26px;    /* a screen's own big heading (greeting, "Your profile", "Settings"…) */
+  --size-heading:14.5px; /* a card/section heading */
+  --size-body:14.5px;
+  --size-meta:12.5px;   /* small, muted meta text */
 
   /* shape and motion */
-  --r-xl:28px; --r-lg:22px; --r-md:16px; --r-sm:12px;
-  --ease:160ms ease;
+  --r-xl:24px; --r-lg:16px; --r-md:14px; --r-sm:10px; --r-pill:999px;
+  --ease:180ms cubic-bezier(.2,.7,.3,1);
+  --ease-slow:240ms cubic-bezier(.2,.7,.3,1);
 }
 
 /* ===== Base ===== */
@@ -58,7 +72,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body
 :root[data-dark] body{color-scheme:dark}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 button:focus-visible,input:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
-h1,h2{font-family:var(--font-display);font-weight:700;margin:0;letter-spacing:-.02em}
+h1,h2{font-family:var(--font-display);font-weight:600;margin:0;letter-spacing:-.02em}
 svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 [hidden]{display:none!important}
 
@@ -70,7 +84,7 @@ svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-l
    value in each var()) cover the instant before setup.js's own applyTheme(DEFAULT_THEME) call sets the real ones. */
 .loading-screen{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:14px;background:var(--bg,#fffaf5)}
-.loading-screen .loading-word{font-family:var(--font-display,'Poppins',sans-serif);font-weight:800;font-size:22px;
+.loading-screen .loading-word{font-family:var(--font-display,'Inter',sans-serif);font-weight:600;font-size:22px;
   letter-spacing:-.02em;color:var(--text,#2a211b)}
 
 /* quiet, theme-tinted scrollbars */
@@ -78,7 +92,7 @@ svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-l
 
 /* ===== Jewel avatar (brand "S" and Sim Sim's message avatar) ===== */
 .avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
-  background:var(--jewel);color:#fff;font-family:var(--font-display);font-weight:800;font-size:16px;
+  background:var(--jewel);color:#fff;font-family:var(--font-display);font-weight:600;font-size:16px;
   text-shadow:0 1px 1px rgba(120,40,0,.25);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -2px 4px rgba(0,0,0,.12),
     0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent),var(--jewel-glow)}
@@ -90,84 +104,77 @@ svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-l
 :root.has-face .avatar:not(.bot){background:var(--sim-face) center/cover no-repeat,var(--surface)}
 :root.has-face .sp-thread .avatar,:root.has-face .freeze-btn .avatar{background:url("/faces/default.svg") center/cover no-repeat,var(--jewel)}
 
-/* ===== Sidebar ===== */
-.side{width:276px;flex-shrink:0;border-right:1px solid var(--line);overflow-y:auto;
-  background:linear-gradient(180deg,color-mix(in srgb,var(--side) 96%,#fff),color-mix(in srgb,var(--side) 96%,var(--text)));
-  padding:24px 16px 16px;display:flex;flex-direction:column;gap:6px}
-.brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);font-weight:800;font-size:20px;letter-spacing:-.02em;padding:0 8px 16px}
-.newchat{display:flex;align-items:center;gap:9px;background:var(--primary-grad);color:var(--on-primary);border-radius:var(--r-md);
-  padding:12px 16px;font-weight:700;margin-bottom:14px;text-shadow:0 1px 1px rgba(90,25,0,.25);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),var(--shadow-1),0 8px 20px -10px var(--accent);
+/* ===== Sidebar (Design 7: flat light-gray slab, quiet rows, even heights) ===== */
+.side{width:268px;flex-shrink:0;border-right:1px solid var(--line);overflow-y:auto;
+  background:var(--side);
+  padding:20px 14px 14px;display:flex;flex-direction:column;gap:6px}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);font-weight:600;font-size:19px;letter-spacing:-.02em;padding:0 8px 14px}
+.newchat{display:flex;align-items:center;gap:9px;background:var(--primary-grad);color:var(--on-primary);border-radius:var(--r-pill);
+  padding:10px 16px;font-weight:600;margin-bottom:12px;font-size:13.5px;
+  box-shadow:var(--shadow-1);
   transition:transform var(--ease),box-shadow var(--ease)}
-.newchat:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),var(--shadow-1),0 12px 26px -10px var(--accent)}
-.newchat:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),var(--shadow-1)}
-.newchat svg{width:18px;height:18px;stroke-width:2.2}
-.nav{display:flex;flex-direction:column;gap:3px}
-.nav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 14px;border-radius:var(--r-sm);font-size:15.5px;
-  transition:transform var(--ease),box-shadow var(--ease),background-color var(--ease)}
-.nav button:hover{background:var(--card-grad);box-shadow:var(--lift);transform:translateY(-1px)}
-.nav button:active{transform:translateY(1px)}
-.nav button.on{background:var(--selected-bg);color:var(--accent-ink);font-weight:700;box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1)}
+.newchat:hover{box-shadow:var(--shadow-2)}
+.newchat:active{transform:scale(.98)}
+.newchat svg{width:16px;height:16px;stroke-width:2.4}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:12px;width:100%;height:40px;text-align:left;padding:0 12px;border-radius:var(--r-sm);font-size:14px;
+  transition:background-color var(--ease),color var(--ease)}
+.nav button:hover{background:var(--selected-bg)}
+.nav button.on{background:var(--selected-bg);color:var(--accent-ink);font-weight:600}
 .nav button.on:hover{background:var(--selected-bg)}
-.nav svg{width:19px;height:19px;flex-shrink:0}
-.badge{margin-left:auto;min-width:24px;text-align:center;background:var(--primary-grad);color:var(--on-primary);border-radius:11px;
-  font-size:12px;font-weight:700;padding:1px 8px;font-variant-numeric:tabular-nums;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 2px 6px -2px var(--accent)}
-.note{margin:6px 12px 0;font-size:13.5px;color:var(--muted);min-height:22px}
-.profile-row{margin-top:auto;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding-top:8px;border-top:1px solid var(--line)}
-.profile{flex:1 1 100%;min-width:0;display:flex;align-items:center;gap:12px;text-align:left;padding:10px;border-radius:var(--r-md);
-  transition:transform var(--ease),box-shadow var(--ease),background-color var(--ease)}
-.profile:hover{background:var(--card-grad);box-shadow:var(--lift);transform:translateY(-1px)}
-.profile:active{transform:translateY(1px)}
-.profile[aria-pressed="true"]{background:var(--selected-bg);box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1)}
-.me{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--ink);color:var(--on-ink);
-  font-family:var(--font-display);font-weight:700;font-size:15px;box-shadow:inset 0 1px 0 rgba(255,255,255,.18),var(--shadow-1)}
-.who{font-weight:700;min-width:0}
+.nav svg{width:18px;height:18px;flex-shrink:0}
+.badge{margin-left:auto;min-width:22px;text-align:center;background:var(--primary-grad);color:var(--on-primary);border-radius:11px;
+  font-size:11.5px;font-weight:500;padding:1px 7px;font-variant-numeric:tabular-nums}
+.note{margin:6px 12px 0;font-size:13px;color:var(--muted);min-height:22px}
+.profile-row{margin-top:auto;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding-top:10px;border-top:1px solid var(--line)}
+.profile{flex:1 1 100%;min-width:0;display:flex;align-items:center;gap:11px;text-align:left;padding:8px 10px;border-radius:var(--r-md);
+  transition:background-color var(--ease)}
+.profile:hover{background:var(--selected-bg)}
+.profile[aria-pressed="true"]{background:var(--selected-bg)}
+.me{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;background:var(--ink);color:var(--on-ink);
+  font-family:var(--font-display);font-weight:500;font-size:13px}
+.who{font-weight:600;min-width:0;font-size:13px}
 .who-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.who small{display:block;font-weight:400;font-size:12.5px;color:var(--muted)}
+.who small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
 /* a one-line, ellipsis-truncated email (founder, 2026-11-01) — it used to wrap mid-address across two lines */
 .who .who-email{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35}
-.signout{flex-shrink:0;margin-left:auto;font-size:12.5px;font-weight:700;padding:7px 11px;border-radius:var(--r-sm);color:var(--muted);
-  background:var(--card-grad);border:1px solid var(--line);box-shadow:var(--lift);transition:transform var(--ease),color var(--ease)}
-.signout:hover{transform:translateY(-1px);color:var(--accent-ink)}
-.signout:active{transform:translateY(1px)}
+.signout{flex-shrink:0;margin-left:auto;font-size:12.5px;font-weight:500;padding:7px 11px;border-radius:var(--r-sm);color:var(--muted);
+  background:var(--card-grad);border:1px solid var(--line);box-shadow:var(--shadow-1);transition:color var(--ease)}
+.signout:hover{color:var(--accent-ink)}
 
-/* ===== Main ===== */
-/* one soft glow, top-center, over the flat background */
-.main{flex:1;min-width:0;display:flex;flex-direction:column;
-  background:radial-gradient(1000px 520px at 50% -160px,var(--glow),transparent 72%),var(--bg)}
-.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:16px 28px;
-  border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg) 70%,transparent)}
-.title{font-size:18px}
+/* ===== Main (Design 7: a plain white column — no glow behind the content) ===== */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 28px 10px;
+  background:var(--bg)}
+.title{font-size:15px;font-weight:600;color:var(--text)}
 .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;max-width:100%}
 .controls>*{max-width:100%}
-.pill{display:inline-flex;align-items:center;gap:8px;border-radius:20px;font-weight:700;
-  background:var(--ok-bg);color:var(--ok-fg);box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1);transition:background-color .2s ease,color .2s ease}
+.pill{display:inline-flex;align-items:center;gap:8px;border-radius:var(--r-pill);font-weight:600;
+  background:var(--ok-bg);color:var(--ok-fg);transition:background-color .2s ease,color .2s ease}
 /* jewel dot: glows while listening, pulse ring while thinking/speaking */
-.pill .dot{position:relative;width:9px;height:9px;border-radius:50%;
-  background:linear-gradient(140deg,var(--ok-dot2),var(--ok-dot));box-shadow:0 0 0 2px color-mix(in srgb,var(--ok-dot) 18%,transparent),0 0 8px color-mix(in srgb,var(--ok-dot) 60%,transparent)}
+.pill .dot{position:relative;width:8px;height:8px;border-radius:50%;
+  background:linear-gradient(140deg,var(--ok-dot2),var(--ok-dot))}
 button.pill{cursor:default;text-align:left}
-/* "Test mode" safety label (server .env only) */
-.test-pill{display:inline-flex;align-items:center;border-radius:20px;padding:6px 13px;font-size:12.5px;font-weight:700;font-family:var(--font-display);
-  letter-spacing:.04em;text-transform:uppercase;color:var(--busy-fg);background:var(--busy-bg);border:1.5px dashed var(--busy-fg)}
+/* "Test mode" safety label (server .env only) — a solid border, never dashed (Design 7, 2026-11-02) */
+.test-pill{display:inline-flex;align-items:center;border-radius:var(--r-pill);padding:6px 13px;font-size:12.5px;font-weight:500;font-family:var(--font-display);
+  letter-spacing:.04em;text-transform:uppercase;color:var(--busy-fg);background:var(--busy-bg);border:1px solid var(--busy-fg)}
 .ltop-in .test-pill{margin-left:auto}
 /* "Dev door — no verification" safety label (server .env only) */
-.dev-pill{display:inline-flex;align-items:center;justify-content:center;align-self:center;border-radius:20px;padding:6px 13px;font-size:12.5px;font-weight:700;
-  font-family:var(--font-display);color:var(--busy-fg);background:var(--busy-bg);border:1.5px dashed var(--busy-fg)}
+.dev-pill{display:inline-flex;align-items:center;justify-content:center;align-self:center;border-radius:var(--r-pill);padding:6px 13px;font-size:12.5px;font-weight:500;
+  font-family:var(--font-display);color:var(--busy-fg);background:var(--busy-bg);border:1px solid var(--busy-fg)}
 .pill.warn{background:var(--busy-bg);color:var(--busy-fg);cursor:pointer}
 .pill.warn .dot{background:var(--busy-fg);box-shadow:none}
-.pill.awake{background:var(--primary-grad);color:var(--on-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 0 0 4px color-mix(in srgb,var(--accent) 20%,transparent),var(--shadow-1)}
+.pill.awake{background:var(--primary-grad);color:var(--on-primary)}
 .pill.awake .dot{background:var(--on-primary);box-shadow:0 0 8px var(--on-primary);animation:pulse .8s infinite}
 .pill.busy{background:var(--busy-bg);color:var(--busy-fg)}
-.pill.busy .dot{background:var(--jewel);box-shadow:0 0 8px color-mix(in srgb,var(--busy-dot) 55%,transparent)}
+.pill.busy .dot{background:var(--jewel)}
 .pill.busy .dot::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--busy-dot);animation:ring 1.3s ease-out infinite}
 @keyframes ring{from{transform:scale(1);opacity:.7}to{transform:scale(2.6);opacity:0}}
 @keyframes pulse{50%{opacity:.3}}
-.speak{display:inline-flex;align-items:center;gap:7px;border-radius:20px;
-  background:var(--card-grad);border:1px solid var(--line);box-shadow:var(--lift);
-  transition:transform var(--ease),box-shadow var(--ease)}
-.speak:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),var(--shadow-2-deep)}
-.speak:active{transform:translateY(1px)}
+.speak{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);
+  background:var(--card-grad);border:1px solid var(--line);
+  transition:box-shadow var(--ease)}
+.speak:hover{box-shadow:var(--shadow-1)}
 .speak svg{width:17px;height:17px}
 .speak b{color:var(--accent-text);font-family:var(--font-display)}
 .speak[aria-pressed="false"] b{color:var(--muted)}
@@ -188,26 +195,25 @@ button.pill{cursor:default;text-align:left}
 }
 
 /* wake by name: the live "Hearing" line and the blocked-mic help */
-.help{max-width:740px;width:calc(100% - 56px);margin:12px auto 0;border-radius:var(--r-md);padding:10px 16px;font-size:15px;background:var(--busy-bg);color:var(--busy-fg);border:1px solid color-mix(in srgb,var(--busy-fg) 20%,transparent)}
+.help{max-width:700px;width:calc(100% - 56px);margin:12px auto 0;border-radius:var(--r-md);padding:10px 16px;font-size:15px;background:var(--busy-bg);color:var(--busy-fg);border:1px solid color-mix(in srgb,var(--busy-fg) 20%,transparent)}
 
 /* messages */
-.thread{flex:1;overflow-y:auto;padding:32px 0 16px}
-.col{max-width:740px;margin:0 auto;padding:0 28px;display:flex;flex-direction:column;gap:22px}
+.thread{flex:1;overflow-y:auto;padding:28px 0 16px}
+.col{max-width:700px;margin:0 auto;padding:0 28px;display:flex;flex-direction:column;gap:22px}
 .empty{align-self:center;text-align:center;margin-top:12vh;display:flex;flex-direction:column;align-items:center;gap:8px}
-.avatar.big{width:64px;height:64px;font-size:28px;margin-bottom:6px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -3px 6px rgba(0,0,0,.12),
-    0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent),0 10px 30px color-mix(in srgb,var(--accent) 35%,transparent)}
-.empty h2{font-size:26px}
+.avatar.big{width:64px;height:64px;font-size:28px;margin-bottom:6px}
+.empty h2{font-size:var(--size-title);font-weight:600}
 .empty p{margin:0;color:var(--muted)}
-.user{align-self:flex-end;max-width:78%;background:var(--user-grad);border:1px solid color-mix(in srgb,var(--accent) 14%,var(--line));
-  border-radius:var(--r-lg) var(--r-lg) 6px var(--r-lg);padding:12px 18px;white-space:pre-wrap;overflow-wrap:anywhere;
-  box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1)}
-.msg{display:flex;gap:12px;align-items:flex-start;max-width:88%}
-.msg .avatar{width:32px;height:32px;font-size:14px}
+/* Design 7: the user's own message is a soft flat pill — no gradient, no border, no shadow stack */
+.user{align-self:flex-end;max-width:78%;background:var(--bubble);
+  border-radius:20px;padding:11px 18px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg{display:flex;gap:12px;align-items:flex-start;max-width:92%}
+.msg .avatar{width:30px;height:30px;font-size:13px}
 .msg .body{min-width:0;padding-top:3px}
-.msg .name{font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--muted);margin-left:4px}
-.msg .txt{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:4px;padding:12px 18px;
-  background:var(--sim-grad);border:1px solid var(--line);border-radius:6px var(--r-lg) var(--r-lg) var(--r-lg);box-shadow:var(--lift)}
+.msg .name{font-family:var(--font-display);font-weight:500;font-size:var(--size-meta);color:var(--muted);margin-left:0}
+/* Sim Sim's answer: NO bubble at all — plain full-width text, same as the reference's `.msg-a p` */
+.msg .txt{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:4px;padding:0;
+  background:none;border:0;border-radius:0;box-shadow:none;font-size:var(--size-body);line-height:1.7}
 /* message times, WhatsApp-style (founder, 2026-10-31; 1-on-1 chat only) — an inline element at the end of the message
    text: the text wraps around it and the bubble grows to fit, so it always lands inside the padding, never on or
    past the border. app.js stamps it INSIDE the last line's own element (a <p>/<li>, or the bubble itself for a
@@ -233,15 +239,17 @@ button.pill{cursor:default;text-align:left}
 .gs-snip{font-size:13px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .gs-flash{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:4px;border-radius:var(--r-lg)}
 /* timed reminders: due ones at the top of the chat; the list in Open loops */
-.rem-bar{position:sticky;top:0;z-index:4;max-width:740px;margin:0 auto 12px;padding:0 28px;display:flex;flex-direction:column;gap:8px}
-.rem-msg .txt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.rem-bar{position:sticky;top:0;z-index:4;max-width:700px;margin:0 auto 12px;padding:0 28px;display:flex;flex-direction:column;gap:8px}
+/* a reminder is a highlighted banner, not a plain answer — it keeps its own card, unlike .msg .txt's new no-bubble look */
+.rem-msg .txt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border-radius:var(--r-md);
+  box-shadow:var(--shadow-1);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .rem-msg .txt small{color:var(--muted)}
 .rem-msg .mini-btn{margin-left:auto}
 .rem-h{font-family:var(--font-display);font-size:16px;margin:22px 0 4px}
 .rem-note{margin:0 0 10px;color:var(--muted);font-size:13.5px}
 #remList .loop{display:flex;align-items:center;justify-content:space-between;gap:10px}
 /* the full view (media.js): one overlay for pictures, PDFs and video */
-.media-view{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;background:rgba(18,14,12,.86)}
+.media-view{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;background:rgba(18,14,12,.86);animation:backdropIn var(--ease-slow) both}
 .mv-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:rgba(0,0,0,.35);color:#fff}
 .mv-bar b{flex:1;min-width:0;font-family:var(--font-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mv-bar .mini-btn{text-decoration:none;color:var(--text)}
@@ -256,7 +264,7 @@ button.pill{cursor:default;text-align:left}
 .mv-inline video{max-width:min(420px,100%);border-radius:10px;background:#000}
 /* a PDF Sim Sim made: its card with Download */
 .doc-card{display:flex;align-items:center;gap:12px;margin-top:8px;padding:10px 12px;max-width:440px;background:var(--card-grad);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow-1)}
-.doc-icon{flex-shrink:0;width:40px;height:48px;display:grid;place-items:center;border-radius:8px;background:#b42f24;color:#fff;font-family:var(--font-display);font-weight:800;font-size:12px;letter-spacing:.04em}
+.doc-icon{flex-shrink:0;width:40px;height:48px;display:grid;place-items:center;border-radius:8px;background:#b42f24;color:#fff;font-family:var(--font-display);font-weight:500;font-size:12px;letter-spacing:.04em}
 .doc-info{flex:1;min-width:0;display:flex;flex-direction:column}
 .doc-info b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .doc-info small{color:var(--muted);font-size:12.5px}
@@ -273,47 +281,55 @@ button.pill{cursor:default;text-align:left}
 .code-block{margin:.6em 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
 .code-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 6px 5px 12px;border-bottom:1px solid var(--line);
   background:color-mix(in srgb,var(--text) 4%,var(--surface));font-size:12.5px;color:var(--muted)}
-.code-copy{font-family:var(--font-display);font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:9px;background:var(--card-grad);border:1px solid var(--line);color:var(--text)}
+.code-copy{font-family:var(--font-display);font-size:12.5px;font-weight:500;padding:5px 12px;border-radius:9px;background:var(--card-grad);border:1px solid var(--line);color:var(--text)}
 .code-copy:hover{border-color:var(--accent);color:var(--accent-ink)}
 .code-block pre{margin:0;padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow-y:auto}
 .code-block pre code{background:none;padding:0;font-size:13.5px;line-height:1.55}
-.msg.error .txt{background:var(--err-bg);color:var(--err-fg);border-color:color-mix(in srgb,var(--err-fg) 18%,var(--err-bg));font-size:15px}
+.msg.error .txt{background:var(--err-bg);color:var(--err-fg);padding:12px 16px;border-radius:var(--r-md);font-size:15px}
 .user,.msg{animation:rise 180ms ease both}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* Design 7 motion (founder, 2026-11-02): views cross-fade, menus/sheets slide in, modals fade + scale — nothing
+   pops in a hard single frame. These run the moment an element is shown (display:none -> visible triggers a CSS
+   animation on first paint, same as @keyframes rise above already relies on for every message) or inserted into
+   the page, so no JS view-toggle logic needed to change. prefers-reduced-motion already turns every animation and
+   transition off globally, at the bottom of this file. */
+@keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes modalIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+@keyframes sheetIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes backdropIn{from{opacity:0}to{opacity:1}}
 .typing{display:inline-flex;gap:5px;padding:6px 0}
 .typing span{width:8px;height:8px;border-radius:50%;background:var(--muted);animation:pulse 1s infinite}
 .typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
 .typing-who{margin-left:10px;color:var(--muted);font-size:13px;vertical-align:middle}   /* Discussion: "Researcher is typing…" */
 
-/* composer: a floating bar */
-.composer{padding:12px 28px 22px}
-.cbox{max-width:740px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--card-grad);
-  border:1.5px solid var(--line);border-radius:var(--r-xl);padding:8px 8px 8px 22px;
-  box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),0 16px 40px -14px var(--shadow-c2);
-  transition:border-color var(--ease),box-shadow var(--ease)}
-.cbox:focus-within{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));
-  box-shadow:inset 0 1px 0 var(--ring),0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent),0 16px 40px -14px var(--shadow-c2)}
+/* composer (Design 7): ONE round pill — soft shadow, a near-invisible hairline, no heavy border */
+.composer{padding:10px 28px 20px}
+.cbox{max-width:700px;margin:0 auto;display:flex;align-items:flex-end;gap:6px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r-pill);padding:7px 7px 7px 20px;
+  box-shadow:var(--shadow-2);
+  transition:box-shadow var(--ease)}
+.cbox:focus-within{box-shadow:var(--shadow-2-deep)}
 /* the message box: one line when empty, grows with the text up to about 7 lines, then scrolls inside */
 .cbox textarea{flex:1;min-width:0;border:0;background:none;font:inherit;color:var(--text);padding:9px 0;
   resize:none;display:block;max-height:200px;overflow-y:hidden;align-self:center}
 .cbox textarea:focus{outline:none}
 .cbox textarea::placeholder{color:var(--muted)}
-.round{width:44px;height:44px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;transition:transform var(--ease),box-shadow var(--ease),opacity var(--ease)}
+.round{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;transition:transform var(--ease),box-shadow var(--ease),opacity var(--ease)}
 .round:hover{transform:translateY(-1px)}
-.round:active{transform:translateY(1px)}
-.round svg{width:20px;height:20px;stroke-width:2.1}
-.mic{background:var(--jewel);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),var(--shadow-1),0 6px 16px -6px var(--accent)}
-.mic:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),var(--shadow-1),0 10px 22px -6px var(--accent)}
+.round:active{transform:scale(.96)}
+.round svg{width:19px;height:19px;stroke-width:2.1}
+.mic{background:var(--jewel);color:#fff}
+.mic:hover{box-shadow:0 4px 12px -4px var(--accent)}
 /* voice capture (after "Sim Sim" or the mic button): the question bar glows while it takes the request */
-.cbox.capturing{border-color:var(--accent);box-shadow:inset 0 1px 0 var(--ring),0 0 0 4px color-mix(in srgb,var(--accent) 24%,transparent),0 16px 40px -14px var(--shadow-c2)}
-.mic[aria-pressed="true"]{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 0 6px color-mix(in srgb,var(--accent) 22%,transparent),0 6px 16px -6px var(--accent);animation:pulse 1.2s infinite}
-.send{background:var(--primary-grad);color:var(--on-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),var(--shadow-1)}
-.send:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.28),var(--shadow-1),0 8px 18px -8px var(--accent)}
+.cbox.capturing{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent),var(--shadow-2)}
+.mic[aria-pressed="true"]{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 22%,transparent);animation:pulse 1.2s infinite}
+.send{background:var(--primary-grad);color:var(--on-primary)}
+.send:hover{box-shadow:0 4px 12px -4px var(--accent)}
 .send:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
 /* Send becomes Stop while a reply is in flight (founder, 2026-10-31) */
 .send.is-stop{background:var(--busy-bg);color:var(--busy-fg)}
 .stopped-line{color:var(--muted);font-size:13px}
-.cap{max-width:740px;margin:10px auto 0;text-align:center;font-size:13px;color:var(--muted);min-height:20px}
+.cap{max-width:700px;margin:10px auto 0;text-align:center;font-size:13px;color:var(--muted);min-height:20px}
 
 /* ===== Landing page (signed out) ===== */
 .landing{min-height:100vh;background:radial-gradient(1100px 560px at 50% -120px,var(--glow),transparent 72%),var(--bg)}
@@ -321,14 +337,14 @@ button.pill{cursor:default;text-align:left}
 .ltop{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .ltop-in{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px}
 .ltop .brand{padding:0}
-.ghost-btn{font-family:var(--font-display);font-weight:700;font-size:14.5px;padding:9px 20px;border-radius:var(--r-md);
+.ghost-btn{font-family:var(--font-display);font-weight:500;font-size:14.5px;padding:9px 20px;border-radius:var(--r-md);
   background:var(--card-grad);border:1px solid var(--line);box-shadow:var(--lift);transition:transform var(--ease),box-shadow var(--ease)}
-.ghost-btn:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),var(--shadow-2-deep)}
+.ghost-btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-2)}
 .ghost-btn:active{transform:translateY(1px)}
 
 .hero-in{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:56px;align-items:center;padding-block:72px 64px}
 .pitch{display:flex;flex-direction:column;gap:20px;min-width:0}
-.pitch h1{font-weight:800;font-size:clamp(34px,5vw,54px);line-height:1.1;text-wrap:balance}
+.pitch h1{font-weight:600;font-size:clamp(34px,5vw,54px);line-height:1.1;text-wrap:balance}
 .pitch p{margin:0;font-size:18px;color:var(--muted);max-width:52ch}
 
 /* Landing hero video (founder, 2026-11-01): wired to ONE source, LANDING_VIDEO_URL in auth.js — shipped empty, so
@@ -338,10 +354,10 @@ button.pill{cursor:default;text-align:left}
 
 /* sign-in card */
 .signin{width:100%;max-width:420px;justify-self:end;background:var(--card-grad);border:1px solid var(--line);border-radius:var(--r-xl);
-  box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),0 24px 60px -20px var(--shadow-c2);padding:36px 32px;outline:none}
+  box-shadow:var(--shadow-2-deep);padding:36px 32px;outline:none}
 .state{display:flex;flex-direction:column;gap:14px;text-align:center}
 .state form{display:flex;flex-direction:column;gap:10px;text-align:left}
-.state h2{font-size:24px;font-weight:800;text-wrap:balance}
+.state h2{font-size:var(--size-title);font-weight:600;text-wrap:balance}
 .state p{margin:0}
 .state .avatar.big{margin:0 auto 2px}
 .state label{font-family:var(--font-display);font-weight:600;font-size:14px;margin-top:4px}
@@ -350,17 +366,17 @@ button.pill{cursor:default;text-align:left}
 .state input:focus{outline:none;border-color:color-mix(in srgb,var(--accent) 55%,var(--line));box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent)}
 .err{color:var(--err-fg);font-size:14px;min-height:0;text-align:left}
 .err:empty{display:none}
-.btn-primary{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--on-primary);padding:14px 18px;border-radius:18px;margin-top:4px;
-  background:var(--primary-grad);text-shadow:0 1px 1px rgba(90,25,0,.25);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),var(--shadow-1),0 8px 20px -10px var(--accent);transition:transform var(--ease),box-shadow var(--ease),opacity var(--ease)}
-.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),var(--shadow-1),0 12px 26px -10px var(--accent)}
+.btn-primary{font-family:var(--font-display);font-weight:600;font-size:15.5px;color:var(--on-primary);padding:13px 18px;border-radius:var(--r-pill);margin-top:4px;
+  background:var(--primary-grad);
+  box-shadow:var(--shadow-1);transition:transform var(--ease),box-shadow var(--ease),opacity var(--ease)}
+.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--shadow-2)}
 .btn-primary:active:not(:disabled){transform:translateY(1px)}
 .btn-primary:disabled{opacity:.6;cursor:default}
 .fine{font-size:13.5px;color:var(--muted)}
 .textlink{color:var(--muted);text-decoration:underline;text-underline-offset:3px;font-size:14px;padding:4px;align-self:center}
 .textlink:hover{color:var(--accent-ink)}
 .env{width:72px;height:72px;margin:0 auto;border-radius:50%;display:grid;place-items:center;background:var(--selected-bg);
-  box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1)}
+  box-shadow:var(--shadow-1)}
 .env svg{width:38px;height:38px;stroke:var(--accent-ink);stroke-width:1.6}
 .breathe{animation:pulse 1.4s ease-in-out infinite}
 
@@ -369,16 +385,16 @@ button.pill{cursor:default;text-align:left}
 .feat{grid-column:span 2;background:var(--card-grad);border:1px solid var(--line);border-radius:var(--r-lg);padding:26px;
   display:flex;flex-direction:column;gap:10px;box-shadow:var(--lift);transition:transform var(--ease),box-shadow var(--ease)}
 .feat:nth-child(n+4){grid-column:span 3}
-.feat:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),var(--shadow-2-deep)}
-.feat h3{font-family:var(--font-display);font-weight:700;font-size:18px;margin:0;letter-spacing:-.02em}
+.feat:hover{transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.feat h3{font-family:var(--font-display);font-weight:600;font-size:18px;margin:0;letter-spacing:-.02em}
 .feat p{margin:0;color:var(--muted);font-size:15.5px}
 .ficon{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--jewel);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 6px 16px -6px var(--accent)}
+  box-shadow:0 4px 12px -4px var(--accent)}
 .ficon svg{width:23px;height:23px;stroke:#fff}
 
 .strip{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 9%,var(--bg)),color-mix(in srgb,var(--accent2) 12%,var(--bg)));
   border-block:1px solid color-mix(in srgb,var(--accent) 14%,var(--line));padding-block:48px;text-align:center}
-.strip h2{font-weight:800;font-size:clamp(24px,3.4vw,34px);margin-bottom:10px;text-wrap:balance}
+.strip h2{font-weight:600;font-size:clamp(24px,3.4vw,34px);margin-bottom:10px;text-wrap:balance}
 .strip p{margin:0 auto;max-width:62ch}
 .privacy{padding-block:56px;text-align:center}
 .privacy p{margin:0 auto;max-width:56ch;color:var(--muted);font-size:17px}
@@ -403,22 +419,49 @@ button.pill{cursor:default;text-align:left}
 .setup{min-height:100vh;display:grid;place-items:center;padding:40px 16px;
   background:radial-gradient(1000px 520px at 50% -160px,var(--glow),transparent 72%),var(--bg)}
 .setup-card{width:100%;max-width:660px;background:var(--card-grad);border:1px solid var(--line);border-radius:var(--r-xl);
-  box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),0 24px 60px -20px var(--shadow-c2);padding:36px 36px 30px;
+  box-shadow:var(--shadow-2-deep);padding:36px 36px 30px;
   display:flex;flex-direction:column;gap:18px}
 .steps{font-family:var(--font-display);font-weight:600;font-size:12.5px;color:var(--accent-text);letter-spacing:.08em;text-transform:uppercase}
-.setup-card h1{font-weight:800;font-size:28px;text-wrap:balance;margin-top:-6px}
+.setup-card h1{font-weight:600;font-size:var(--size-title);text-wrap:balance;margin-top:-6px}
 .field{display:flex;flex-direction:column;gap:8px}
 .setup .err{margin:0}
 .field label,.flabel{font-family:var(--font-display);font-weight:600;font-size:14.5px}
 .setup input,.setup select{font:inherit;color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:var(--r-md);padding:12px 16px;width:100%;
   box-shadow:inset 0 1px 2px var(--shadow-c);transition:border-color var(--ease),box-shadow var(--ease)}
 .setup input:focus,.setup select:focus{outline:none;border-color:color-mix(in srgb,var(--accent) 55%,var(--line));box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent)}
+
+/* The shared custom dropdown (founder, 2026-11-04 — "Pretty dropdowns + Country + Language"): one component, used
+   for State, Country and Language everywhere they appear (setup Step 1 and Profile "Edit my basics" share the
+   same markup/JS, so this styles both at once). No native <select> popup anywhere. */
+.dd{position:relative}
+.dd-btn{font:inherit;color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:var(--r-md);padding:12px 16px;width:100%;
+  box-shadow:inset 0 1px 2px var(--shadow-c);transition:border-color var(--ease),box-shadow var(--ease);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;cursor:pointer}
+.dd-btn .dd-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-value.placeholder{color:var(--muted)}
+.dd-chev{width:16px;height:16px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;
+  color:var(--muted);transition:transform var(--ease)}
+.dd-btn[aria-expanded="true"]{outline:none;border-color:color-mix(in srgb,var(--accent) 55%,var(--line));box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent)}
+.dd-btn[aria-expanded="true"] .dd-chev{transform:rotate(180deg)}
+.dd-panel{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:30;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-md);box-shadow:var(--shadow-2);padding:8px;display:flex;flex-direction:column;gap:6px;
+  animation:sheetIn var(--ease) both}
+.dd-search{font:inherit;font-size:14px;color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:var(--r-sm);
+  padding:9px 12px;width:100%}
+.dd-search:focus{outline:none;border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.dd-list{max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+.dd-row{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:var(--r-sm);font-size:14.5px;text-align:left;width:100%;color:var(--text)}
+.dd-row:hover,.dd-row.dd-active{background:var(--bubble)}
+.dd-row[aria-selected="true"]{background:var(--selected-bg);color:var(--accent-ink);font-weight:500}
+.dd-check{width:16px;height:16px;flex-shrink:0;stroke:var(--accent-ink);fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;visibility:hidden}
+.dd-row[aria-selected="true"] .dd-check{visibility:visible}
+.dd-empty{padding:10px 12px;color:var(--muted);font-size:14px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{border:1.5px solid var(--line);border-radius:20px;padding:8px 16px;background:var(--card-grad);box-shadow:var(--shadow-1);
   transition:transform var(--ease),box-shadow var(--ease),border-color var(--ease)}
 .chip:hover{transform:translateY(-1px)}
-.chip[aria-checked="true"]{border-color:var(--accent);background:var(--selected-bg);color:var(--accent-ink);font-weight:700;
-  box-shadow:inset 0 1px 0 var(--ring),0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
+.chip[aria-checked="true"]{border-color:var(--accent);background:var(--selected-bg);color:var(--accent-ink);font-weight:500;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}
 .row .btn-primary{margin-left:auto;min-width:150px}
 
@@ -443,10 +486,10 @@ button.pill{cursor:default;text-align:left}
 .themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:12px}
 .th{position:relative;border:2px solid var(--line);border-radius:18px;padding:10px;background:var(--card-grad);text-align:left;
   display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow-1);transition:transform var(--ease),box-shadow var(--ease),border-color var(--ease)}
-.th:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),var(--shadow-2-deep)}
+.th:hover{transform:translateY(-1px);box-shadow:var(--shadow-2)}
 .th[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent),var(--shadow-1)}
 .th .ok{position:absolute;top:6px;right:6px;z-index:1;width:22px;height:22px;border-radius:50%;background:var(--primary-grad);color:var(--on-primary);
-  font-size:12px;font-weight:700;display:none;place-items:center;box-shadow:var(--shadow-1)}
+  font-size:12px;font-weight:500;display:none;place-items:center;box-shadow:var(--shadow-1)}
 .th[aria-checked="true"] .ok{display:grid}
 .mini{display:flex;height:70px;border:1px solid;border-radius:12px;overflow:hidden;margin-bottom:4px}
 .mini-side{width:24%;flex-shrink:0}
@@ -458,38 +501,65 @@ button.pill{cursor:default;text-align:left}
 .mini-bub{height:11px;width:62%;border:1px solid}
 .mini-bar{margin-top:auto;height:12px;border:1px solid;border-radius:8px!important;position:relative}
 .mini-bar b{position:absolute;right:2px;top:2px;width:6px;height:6px;border-radius:50%}
-.th-name{font-family:var(--font-display);font-weight:700;font-size:14px;line-height:1.3}
+.th-name{font-family:var(--font-display);font-weight:500;font-size:14px;line-height:1.3}
 .th-vibe{color:var(--muted);font-size:12px;margin-top:-2px}
 .dots{display:flex;gap:4px;margin-top:2px}
 .dots span{width:12px;height:12px;border-radius:50%;border:1px solid var(--line)}
 
 /* ===== Profile view ===== */
-.pview{flex:1;overflow-y:auto;padding:40px 0 24px}
+.pview{flex:1;overflow-y:auto;padding:40px 0 24px;animation:viewIn var(--ease-slow) both}
 .pview-in{max-width:640px;margin:0 auto;padding:0 28px;display:flex;flex-direction:column;gap:20px}
-.pview h2{font-size:26px;font-weight:800}
+.pview h2{font-size:var(--size-title);font-weight:600}
 .basics{display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:12px 24px;margin:0;padding:22px 24px;background:var(--card-grad);
   border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--lift)}
 .basics dt{color:var(--muted);font-size:14.5px}
-.basics dd{margin:0;font-weight:700;min-width:0;overflow-wrap:anywhere}
+.basics dd{margin:0;font-weight:500;min-width:0;overflow-wrap:anywhere}
 /* vision: show Sim Sim a picture */
 .round.attach{background:transparent;color:var(--muted);width:40px;height:40px;margin-left:-14px}
 .round.attach:hover{color:var(--accent-ink);background:var(--bubble)}
-.attach-preview{max-width:740px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;padding:6px 8px 6px 6px;width:fit-content;
+.attach-preview{max-width:700px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;padding:6px 8px 6px 6px;width:fit-content;
   background:var(--card-grad);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow-1)}
-.attach-preview img{width:52px;height:52px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.attach-preview img,.attach-preview video{width:52px;height:52px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#000}
 .attach-preview span{font-size:13px;color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .attach-x{width:28px;height:28px;border-radius:50%;font-size:18px;line-height:1;color:var(--muted);background:var(--bubble)}
 .attach-x:hover{color:var(--accent-ink)}
-.attach-err{max-width:740px;margin:0 auto 8px;text-align:center;font-size:14px;color:var(--err-fg)}
+.attach-err{max-width:700px;margin:0 auto 8px;text-align:center;font-size:14px;color:var(--err-fg)}
 .user .user-pic{display:block;max-width:min(320px,100%);max-height:320px;border-radius:14px;margin-bottom:6px;border:1px solid var(--line)}
-.main.dropping{outline:3px dashed color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:-10px}
+.user .user-video{display:block;max-width:min(320px,100%);max-height:320px;border-radius:14px;margin-bottom:6px;border:1px solid var(--line);background:#000}
+.main.dropping{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:-10px}
+
+/* The up-arrow attach menu — Camera · Gallery (founder, 2026-11-04, beside Screen Watch; replaces the old lone
+   attach button) — and the camera capture overlay it opens. */
+.attach-menu-wrap{position:relative;flex-shrink:0;display:flex}
+.attach-menu{position:absolute;bottom:calc(100% + 8px);left:0;min-width:168px;padding:6px;border-radius:var(--r-md);
+  background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-2);display:flex;flex-direction:column;gap:2px;
+  z-index:20;animation:modalIn var(--ease-slow) both}
+.attach-menu-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r-sm);font:inherit;
+  font-size:14.5px;font-weight:500;color:var(--text);text-align:left;width:100%}
+.attach-menu-row:hover{background:var(--bubble)}
+.attach-menu-row svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;color:var(--muted)}
+#attachMenuBtn[aria-expanded="true"]{color:var(--on-primary);background:var(--primary-grad)}
+
+.camera-view{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;padding:20px;background:rgba(18,14,12,.86);animation:backdropIn var(--ease-slow) both}
+.cam-stage{position:relative;width:min(640px,92vw);max-height:68vh;border-radius:var(--r-lg);overflow:hidden;background:#000;
+  display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-2)}
+.cam-stage video,.cam-stage img{display:block;width:100%;max-height:68vh;object-fit:contain}
+.cam-rec{position:absolute;top:12px;left:12px;padding:4px 10px;border-radius:var(--r-pill);background:rgba(0,0,0,.55);
+  color:#fff;font-size:13px;font-weight:500}
+.cam-bar{display:flex;align-items:center;justify-content:center;gap:18px}
+.cam-shutter{width:56px;height:56px;background:#fff;border:3px solid rgba(255,255,255,.5)}
+.cam-shutter svg{width:26px;height:26px;fill:currentColor;stroke:none;color:#c0392b}
+.cam-shutter:hover{transform:translateY(-1px)}
+.camera-view .mini-btn{color:#fff;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25)}
+.camera-view .err{color:#ffb4ab;background:rgba(0,0,0,.4);padding:6px 12px;border-radius:var(--r-sm);font-size:14px}
 
 /* screen watch: floating mini chat, the freeze button, the frozen frame */
 #screenVideo{position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none}
 .round.attach[aria-pressed="true"]{color:var(--on-primary);background:var(--primary-grad)}
 .screen-panel{position:fixed;right:24px;bottom:24px;z-index:60;width:min(360px,calc(100vw - 32px));max-height:min(520px,calc(100vh - 48px));
-  display:flex;flex-direction:column;background:var(--card-grad);border:1px solid var(--line);border-radius:var(--r-lg);
-  box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1),0 24px 60px -16px var(--shadow-c2)}
+  display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-2-deep);animation:modalIn var(--ease-slow) both}
 .sp-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:grab;user-select:none;touch-action:none}
 .sp-head b{flex:1;font-family:var(--font-display);font-size:14px}
 .sp-live{width:9px;height:9px;border-radius:50%;background:#e5484d;box-shadow:0 0 0 3px rgba(229,72,77,.2);animation:pulse 1.6s infinite}
@@ -527,7 +597,7 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 .freeze-btn .avatar{width:56px;height:56px;font-size:22px}
 /* short windows: the hold button sits just LEFT of the panel, so it never covers the panel's Stop button */
 @media (max-height:700px){.freeze-btn{bottom:24px;right:calc(min(360px,100vw - 32px) + 40px)}}
-.freeze-layer{position:fixed;inset:0;z-index:55;background:rgba(15,12,10,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px}
+.freeze-layer{position:fixed;inset:0;z-index:55;background:rgba(15,12,10,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;animation:backdropIn var(--ease-slow) both}
 .fl-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;color:#fff;font-size:14px}
 .fl-bar .mini-btn:not(.on){color:var(--text)}
 /* the frozen frame sits LEFT of the mini chat, so no part of it is hidden under the panel */
@@ -538,9 +608,9 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 /* citation card: where a precise answer came from */
 .cite{margin-top:10px;margin-left:4px;max-width:520px;background:var(--card-grad);border:1px solid var(--line);border-left:3px solid var(--accent);
   border-radius:var(--r-md);padding:10px 14px;font-size:14px;box-shadow:var(--lift);display:flex;flex-direction:column;gap:6px;animation:rise 180ms ease both}
-.cite .lbl{font-family:var(--font-display);font-weight:700;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
+.cite .lbl{font-family:var(--font-display);font-weight:500;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
 .cite-row{display:flex;flex-direction:column;gap:1px}
-.cite-row a{color:var(--text);font-weight:700;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--accent) 45%,transparent);text-underline-offset:3px;overflow-wrap:anywhere}
+.cite-row a{color:var(--text);font-weight:500;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--accent) 45%,transparent);text-underline-offset:3px;overflow-wrap:anywhere}
 .cite-row a:hover{color:var(--accent-ink)}
 .cite-row small{color:var(--muted);font-size:12.5px}
 
@@ -564,14 +634,14 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 /* learned memory: quiet chips under replies + the list in the Profile view */
 .mem-chip{display:flex;align-items:center;gap:10px;margin-top:8px;margin-left:4px;width:fit-content;max-width:100%;
   font-size:13px;color:var(--muted);background:color-mix(in srgb,var(--accent) 7%,var(--surface));
-  border:1px dashed color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:12px;padding:5px 6px 5px 12px;animation:rise 180ms ease both}
+  border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line));border-radius:var(--r-pill);padding:5px 6px 5px 12px;animation:rise 180ms ease both}
 .mem-chip span{overflow-wrap:anywhere}
-.mem-chip button{flex-shrink:0;font-size:12px;font-weight:700;color:var(--accent-text);padding:3px 9px;border-radius:9px;
+.mem-chip button{flex-shrink:0;font-size:12px;font-weight:500;color:var(--accent-text);padding:3px 9px;border-radius:9px;
   background:var(--card-grad);border:1px solid var(--line);box-shadow:var(--shadow-1)}
 .mem-chip button:hover{color:var(--accent-ink)}
 .mem-chip.gone{border-style:solid;padding-right:12px}
 .memory{display:flex;flex-direction:column;gap:12px}
-.memory h3,.honesty h3{font-family:var(--font-display);font-weight:700;font-size:18px;margin:0;letter-spacing:-.02em}
+.memory h3,.honesty h3{font-family:var(--font-display);font-weight:600;font-size:18px;margin:0;letter-spacing:-.02em}
 .facts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .fact{display:flex;align-items:center;gap:12px;padding:12px 14px 12px 18px;background:var(--card-grad);border:1px solid var(--line);
   border-radius:var(--r-md);box-shadow:var(--shadow-1)}
@@ -584,7 +654,7 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 .fact-actions{display:flex;gap:6px;flex-shrink:0}
 /* One button system (founder, 2026-11-01): .mini-btn is also used on <a> elements (every Download button) — without an
    explicit color/underline reset those render with the browser's default link blue, breaking the one-family look. */
-.mini-btn{font-size:13px;font-weight:700;padding:6px 12px;border-radius:10px;background:var(--card-grad);border:1px solid var(--line);
+.mini-btn{font-size:13px;font-weight:500;padding:6px 12px;border-radius:10px;background:var(--card-grad);border:1px solid var(--line);
   box-shadow:var(--shadow-1);transition:transform var(--ease);color:var(--text);text-decoration:none;display:inline-flex;
   align-items:center;justify-content:center;gap:6px;cursor:pointer}
 .mini-btn:visited{color:var(--text)}
@@ -592,7 +662,7 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 .mini-btn.on{background:var(--primary-grad);color:var(--on-primary);border-color:transparent}
 /* Real empty states, no dashed "placeholder" look (founder, 2026-11-01) */
 .mem-empty{margin:0;color:var(--muted);padding:14px 18px;background:var(--card-grad);border:1px solid var(--line);border-radius:var(--r-md)}
-.confirm-q{font-weight:700}
+.confirm-q{font-weight:500}
 .memory .err{margin:0}
 .btn-primary.danger{--primary-1:#b42f24;--primary-2:#8f2219;--on-primary:#ffffff}
 /* settings */
@@ -601,16 +671,16 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 .settings-link + .profile-row{margin-top:4px}
 .settings-link svg{width:19px;height:19px;flex-shrink:0}
 .settings-link:hover{background:var(--card-grad);box-shadow:var(--lift);transform:translateY(-1px)}
-.settings-link.on{background:var(--selected-bg);color:var(--accent-ink);font-weight:700}
-#setName{font-weight:700}
+.settings-link.on{background:var(--selected-bg);color:var(--accent-ink);font-weight:500}
+#setName{font-weight:500}
 /* ===== Settings: a pop-out modal over the chat (founder's design, decided 2026-10-31; built 2026-11-01) =====
    The chat stays exactly where it was underneath — nothing here hides or navigates it, so closing needs no
    restore step. LEFT rail = the section list (one row per existing Settings section, the open one a filled
    pill) + Log out pinned at the bottom. RIGHT pane = the open section only; every other .set-sec is just
    display:none — same markup, same ids, same JS wiring as before, only the container changed. */
 .settings-modal{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px}
-.settings-backdrop{position:absolute;inset:0;background:rgba(15,12,10,.6)}
-.settings-card{position:relative;z-index:1;width:100%;max-width:880px;max-height:85vh;display:flex;
+.settings-backdrop{position:absolute;inset:0;background:rgba(15,12,10,.6);animation:backdropIn var(--ease-slow) both}
+.settings-card{position:relative;z-index:1;width:100%;max-width:880px;max-height:85vh;display:flex;animation:modalIn var(--ease-slow) both;
   background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-2-deep),var(--shadow-1);overflow:hidden}
 .settings-closex{position:absolute;top:14px;right:14px;z-index:2;width:34px;height:34px;display:grid;place-items:center;
   border-radius:50%;background:var(--card-grad);border:1px solid var(--line);color:var(--muted)}
@@ -623,15 +693,15 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 .rail-row svg{width:17px;height:17px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.8;
   stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
 .rail-row:hover{background:var(--card-grad)}
-.rail-row.on{background:var(--selected-bg);color:var(--accent-ink);font-weight:700}
+.rail-row.on{background:var(--selected-bg);color:var(--accent-ink);font-weight:500}
 .rail-row.on svg{color:var(--accent-ink)}
 .rail-logout{margin-top:auto;color:var(--err-fg)}
 .settings-right{flex:1;min-width:0;display:flex;flex-direction:column;padding:56px 32px 28px;overflow-y:auto}
-.settings-right h2{font-size:22px;margin:0 0 4px}
+.settings-right h2{font-size:var(--size-title);font-weight:600;margin:0 0 4px}
 .settings-sections{display:flex;flex-direction:column;gap:26px;margin-top:14px}
 .settings-sections .set-sec{display:none}
 .settings-sections .set-sec.active{display:flex}
-.settings-backrow{display:none;align-items:center;gap:6px;color:var(--muted);font-weight:700;font-size:14px;
+.settings-backrow{display:none;align-items:center;gap:6px;color:var(--muted);font-weight:500;font-size:14px;
   padding:0;margin:0 0 10px;align-self:flex-start;background:none;border:none}
 .settings-backrow svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:640px){
@@ -644,7 +714,7 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
   .settings-backrow{display:flex}
 }
 .set-sec{display:flex;flex-direction:column;gap:10px}
-.set-sec h3{font-family:var(--font-display);font-weight:700;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);margin:0}
+.set-sec h3{font-family:var(--font-display);font-weight:500;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);margin:0}
 .set-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;background:var(--card-grad);border:1px solid var(--line);
   border-radius:var(--r-md);box-shadow:var(--shadow-1)}
 .set-row > span:first-child{display:flex;flex-direction:column;min-width:0}
@@ -669,7 +739,7 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
   border-radius:var(--r-md);box-shadow:var(--shadow-1);outline:none;scroll-margin-top:16px}
 .face-now{display:flex;align-items:center;gap:14px}
 .face-now .avatar.big{margin:0;width:56px;height:56px;font-size:24px}
-.face-now > span:nth-child(2),.face-link > span:nth-child(2){display:flex;flex-direction:column;flex:1;min-width:0;font-weight:700}
+.face-now > span:nth-child(2),.face-link > span:nth-child(2){display:flex;flex-direction:column;flex:1;min-width:0;font-weight:500}
 .face-now small,.face-link small{color:var(--muted);font-size:12.5px;font-weight:400;margin-top:2px}
 /* fixed column width (founder, 2026-11-01): a 1fr max let a lone item in the last row stretch out wide — this keeps
    every face tile the same size and lets the row simply wrap, with room at the end instead of a squeeze */
@@ -677,7 +747,7 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 .face-pick{display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 6px 7px;border:2px solid var(--line);border-radius:var(--r-md);background:var(--surface);transition:transform var(--ease)}
 .face-pick:hover{transform:translateY(-1px)}
 .face-pick img{width:48px;height:48px;border-radius:50%;box-shadow:var(--shadow-1)}
-.face-pick small{font-size:12px;color:var(--muted);font-weight:700}
+.face-pick small{font-size:12px;color:var(--muted);font-weight:500}
 .face-pick[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
 .face-ways{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .face-make{display:flex;gap:8px;flex:1;min-width:min(100%,260px)}
@@ -689,8 +759,8 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 .face-preview-btns .btn-primary{margin-top:0}
 .face-box .err{margin:0}
 /* the Action Layer: the allowance card inside a Sim Sim message, and Settings → Permissions */
-.act-card{margin-top:12px;padding:12px 14px;border:1.5px solid color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:var(--r-md);
-  background:color-mix(in srgb,var(--accent) 7%,var(--surface));display:flex;flex-direction:column;gap:10px}
+.act-card{margin-top:12px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:var(--r-md);
+  background:color-mix(in srgb,var(--accent) 7%,var(--surface));display:flex;flex-direction:column;gap:10px;animation:sheetIn var(--ease-slow) both}
 .act-card p{margin:0}
 .act-btns{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .act-btns .btn-primary{margin-top:0}
@@ -698,9 +768,9 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 .act-card.decided{opacity:.7}
 .act-card.decided .act-btns{display:none}
 /* Switch email / Sign out confirm (founder, 2026-11-01): a small centered card, never a silent sign-out */
-.confirm-overlay{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,#000 45%,transparent)}
-.confirm-card{max-width:360px;padding:20px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-1);display:flex;flex-direction:column;gap:14px}
-.confirm-card p{margin:0;font-weight:700}
+.confirm-overlay{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,#000 45%,transparent);animation:backdropIn var(--ease-slow) both}
+.confirm-card{max-width:360px;padding:20px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-2);display:flex;flex-direction:column;gap:14px;animation:modalIn var(--ease-slow) both}
+.confirm-card p{margin:0;font-weight:500}
 .confirm-btns{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end}
 .confirm-btns .btn-primary{margin-top:0}
 .perm-row > span{display:flex;flex-direction:column;min-width:0}
@@ -716,20 +786,18 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
   font-size:13.5px;color:var(--muted);transition:background var(--ease),color var(--ease)}
 .face-switch button span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .face-switch .avatar{width:28px;height:28px;font-size:12px;opacity:.55;transition:opacity var(--ease)}
-.face-switch button[aria-checked="true"]{background:var(--selected-bg);color:var(--accent-ink);font-weight:700;box-shadow:var(--shadow-1)}
+.face-switch button[aria-checked="true"]{background:var(--selected-bg);color:var(--accent-ink);font-weight:500;box-shadow:var(--shadow-1)}
 .face-switch button[aria-checked="true"] .avatar{opacity:1;box-shadow:0 0 0 2px var(--accent)}
 .face-link{display:flex;align-items:center;gap:14px;padding:12px 16px;background:var(--card-grad);border:1px solid var(--line);
   border-radius:var(--r-md);box-shadow:var(--shadow-1);flex-wrap:wrap}
 .seg{display:inline-flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;flex-shrink:0}
 .seg button{padding:6px 12px;font-size:13.5px}
 .seg button + button{border-left:1.5px solid var(--line)}
-.seg button[aria-checked="true"]{background:var(--selected-bg);color:var(--accent-ink);font-weight:700}
+.seg button[aria-checked="true"]{background:var(--selected-bg);color:var(--accent-ink);font-weight:500}
 .switch{position:relative;width:46px;height:26px;border-radius:13px;background:color-mix(in srgb,var(--muted) 35%,var(--surface));flex-shrink:0;transition:background-color var(--ease)}
 .switch i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:var(--shadow-1);transition:transform var(--ease)}
 .switch[aria-checked="true"]{background:var(--primary-grad)}
 .switch[aria-checked="true"] i{transform:translateX(20px)}
-.status{font-size:13px;font-weight:700;color:var(--muted);flex-shrink:0}
-.status.soon{color:var(--accent-text)}
 .danger-btn.armed{background:#b42f24;color:#fff;border-color:#b42f24}
 .vault-add{display:flex;gap:8px;flex-wrap:wrap}
 .vault-add input{flex:1;min-width:140px;font:inherit;color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:var(--r-md);padding:9px 12px}
@@ -738,19 +806,19 @@ body.in-pip{margin:0;height:100vh;overflow:hidden}
 .vault-pw{margin-top:4px;font-size:14px;background:var(--bubble);border-radius:8px;padding:3px 8px;align-self:flex-start;overflow-wrap:anywhere}
 .set-text{display:flex;flex-direction:column;gap:8px;font-size:15px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
 .set-text p{margin:0}
-details.set-text summary{cursor:pointer;font-family:var(--font-display);font-weight:700}
+details.set-text summary{cursor:pointer;font-family:var(--font-display);font-weight:500}
 /* text size (Settings > Appearance) */
 :root[data-text="large"] .msg .txt,:root[data-text="large"] .user,:root[data-text="large"] .brief-text{font-size:19.5px}
 
 /* group chat: the team of three */
-.gview{flex:1;min-height:0;display:flex;flex-direction:column}
+.gview{flex:1;min-height:0;display:flex;flex-direction:column;animation:viewIn var(--ease-slow) both}
 .team-head{border-bottom:1px solid var(--line);padding:14px 28px 12px;display:flex;flex-direction:column;gap:8px;
   background:color-mix(in srgb,var(--side) 55%,transparent)}
 .team-members{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .tm{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--card-grad);box-shadow:var(--shadow-1)}
 .tm .avatar{width:32px;height:32px;font-size:14px}
 .tm-who{display:flex;flex-direction:column;line-height:1.3;min-width:0}
-.tm-who b,.tm-name{font-family:var(--font-display);font-weight:700;font-size:14.5px}
+.tm-who b,.tm-name{font-family:var(--font-display);font-weight:500;font-size:14.5px}
 .tm-name{padding:0;text-align:left;text-decoration:underline dotted;text-decoration-color:color-mix(in srgb,var(--muted) 60%,transparent);text-underline-offset:3px}
 .tm-name:hover{color:var(--accent-ink)}
 .tm-who small{color:var(--muted);font-size:12px}
@@ -760,13 +828,13 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
 .tm-who .err{margin:2px 0 0;font-size:12px}
 .team-counts{margin:0;text-align:center;font-size:13px;color:var(--muted)}
 .gthread{flex:1;overflow-y:auto;padding:24px 0 16px;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
-.gcol{max-width:740px;margin:0 auto;padding:0 28px;display:flex;flex-direction:column;gap:18px}
+.gcol{max-width:700px;margin:0 auto;padding:0 28px;display:flex;flex-direction:column;gap:18px}
 .gprivacy{margin:12vh auto 0;max-width:460px;text-align:center;color:var(--muted);padding:16px 20px;border:1px solid var(--line);border-radius:var(--r-lg)}
 .gmsg .name{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
-.gmsg .name b{font-weight:700;color:var(--text)}
+.gmsg .name b{font-weight:500;color:var(--text)}
 .gmsg .name small{color:var(--muted);font-weight:400}
-.pick-badge{margin-left:4px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--on-primary);background:var(--primary-grad);border-radius:8px;padding:1px 8px}
-.gmsg.picked .txt{border:1.5px solid var(--accent);box-shadow:inset 0 1px 0 var(--ring),0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent),var(--shadow-1)}
+.pick-badge{margin-left:4px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--on-primary);background:var(--primary-grad);border-radius:8px;padding:1px 8px}
+.gmsg.picked .txt{border:1.5px solid var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
 /* an answer that was NOT picked stays on screen, light (founder, 2026-10-29: nothing disappears) */
 .gmsg.unpicked{opacity:.5;animation:none}   /* animation:none — the entry "rise" would otherwise hold opacity at 1 */
 .gmsg.unpicked .txt{box-shadow:none}
@@ -777,7 +845,7 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
 /* morning briefing */
 .brief-head{display:grid;grid-template-columns:auto 1fr;column-gap:16px;align-items:center}
 .brief-head .avatar{grid-row:span 2;margin:0}
-.brief-head h2{font-size:30px;font-weight:800}
+.brief-head h2{font-size:var(--size-title);font-weight:600}
 .brief-date{margin:2px 0 0;color:var(--muted)}
 .brief-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .brief-actions .btn-primary{margin-top:0}
@@ -786,7 +854,7 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
   padding:20px 24px;box-shadow:var(--lift);white-space:pre-wrap}
 .brief-text:empty{display:none}
 .brief-items{display:flex;flex-direction:column;gap:16px}
-.brief-section h3{font-family:var(--font-display);font-weight:700;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);margin:0 0 8px}
+.brief-section h3{font-family:var(--font-display);font-weight:500;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);margin:0 0 8px}
 .brief-section ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .brief-section li{display:flex;flex-direction:column;gap:1px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
 .brief-section small{color:var(--muted);font-size:12.5px}
@@ -819,7 +887,7 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
 .br-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .br-tab{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;padding:6px 12px;border-radius:10px 10px 4px 4px;
   background:var(--card-grad);border:1px solid var(--line);color:var(--muted)}
-.br-tab.on{color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.br-tab.on{color:var(--accent-ink);border-color:var(--accent);font-weight:500}
 .br-shot{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--surface);box-shadow:var(--shadow-1)}
 .br-shot img{display:block;width:100%;height:auto}
 .br-shot .mem-empty{margin:0;padding:28px 18px;text-align:center}
@@ -835,7 +903,7 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
 /* Side chats (history.js): the user's own named chats, in the sidebar under Chat, newest activity first */
 .sidechats{margin:10px 0 8px;display:flex;flex-direction:column;gap:4px}
 .sc-head{display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 14px}
-.sc-head h2{margin:0;font-family:var(--font-display);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sc-head h2{margin:0;font-family:var(--font-display);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .sc-add{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;color:var(--muted);transition:background var(--ease),color var(--ease)}
 .sc-add:hover{background:var(--card-grad);color:var(--accent-ink);box-shadow:var(--lift)}
 .sc-add svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
@@ -852,7 +920,7 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
 .sc-item{flex:1;min-width:0;text-align:left;padding:8px 10px 8px 14px;border-radius:var(--r-sm);font-size:14.5px;color:var(--text);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background var(--ease),box-shadow var(--ease)}
 .sc-item:hover{background:var(--card-grad);box-shadow:var(--lift)}
-.sc-item.on{background:var(--selected-bg);color:var(--accent-ink);font-weight:700;box-shadow:inset 0 1px 0 var(--ring),var(--shadow-1)}
+.sc-item.on{background:var(--selected-bg);color:var(--accent-ink);font-weight:500;box-shadow:var(--shadow-1)}
 .sc-more{width:28px;height:28px;flex-shrink:0;display:grid;place-items:center;border-radius:50%;color:var(--muted);font-size:17px;line-height:1}
 .sc-more:hover,.sc-more:focus-visible{background:var(--card-grad);color:var(--accent-ink)}
 .sc-rename{flex:1 1 100%}
@@ -876,7 +944,7 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
 .opt-pick:disabled{opacity:.4;cursor:default}
 .opt:focus-visible,.opts-pop button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .opts-pop{position:absolute;top:calc(100% + 4px);left:0;z-index:6;padding:4px;white-space:nowrap;
-  background:var(--card-grad);border:1px solid var(--line);border-radius:14px;box-shadow:var(--lift)}
+  background:var(--card-grad);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-2);animation:sheetIn var(--ease) both}
 .opts-pop.up{top:auto;bottom:calc(100% + 4px)}
 .user > .opts .opts-pop{left:auto;right:0}
 .react-pop{display:flex;gap:1px}
@@ -902,10 +970,10 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
   background:color-mix(in srgb,var(--surface) 65%,transparent);border-radius:8px;font-size:14px;line-height:1.45;white-space:normal}
 .quote b{font-family:var(--font-display);font-size:12px;color:var(--accent-text)}
 .quote span{color:var(--muted)}
-.reply-bar{max-width:740px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;padding:6px 8px 6px 14px;
+.reply-bar{max-width:700px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;padding:6px 8px 6px 14px;
   background:var(--card-grad);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:12px;box-shadow:var(--shadow-1)}
 .reply-bar p{flex:1;min-width:0;margin:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.reply-bar b{font-family:var(--font-display);font-weight:700;color:var(--accent-text)}
+.reply-bar b{font-family:var(--font-display);font-weight:500;color:var(--accent-text)}
 .reply-bar span{color:var(--muted)}
 /* Phone widths: the cluster stays beside the message, with smaller icons (stacked beside Sim Sim's answers) */
 @media (max-width:640px){
@@ -924,10 +992,10 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
 .pic-tile:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
 .pic-tile img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;background:var(--bubble)}
 .pic-tile small{color:var(--muted);font-size:12.5px;padding:0 4px}
-.pic-viewer{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,#000 55%,transparent)}
+.pic-viewer{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,#000 55%,transparent);animation:backdropIn var(--ease-slow) both}
 .pic-viewer[hidden]{display:none}
 .pic-full{margin:0;max-width:min(920px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;padding:12px;
-  background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--lift)}
+  background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-2-deep);animation:modalIn var(--ease-slow) both}
 .pic-full img{max-width:100%;max-height:calc(100vh - 140px);object-fit:contain;border-radius:14px}
 .pic-full figcaption{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .pic-full figcaption small{color:var(--muted)}
@@ -936,14 +1004,46 @@ details.set-text summary{cursor:pointer;font-family:var(--font-display);font-wei
 #picDelete.armed{color:var(--err-fg);border-color:var(--err-fg)}
 .closed-box summary{cursor:pointer;color:var(--muted);font-family:var(--font-display);font-weight:600;font-size:14px;padding:6px 2px}
 .closed-box .loops{margin-top:8px}
-.msg.guardian .txt{background:color-mix(in srgb,var(--accent) 6%,var(--surface));border-style:dashed}
+.msg.guardian .txt{background:color-mix(in srgb,var(--accent) 6%,var(--surface));padding:12px 16px;border-radius:var(--r-md);box-shadow:var(--shadow-1)}
 .honesty{display:flex;flex-direction:column;gap:10px;padding:20px 24px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--side)}
-.honesty h3{font-family:var(--font-display);font-weight:700;font-size:16px;margin:0;letter-spacing:-.02em}
+.honesty h3{font-family:var(--font-display);font-weight:600;font-size:16px;margin:0;letter-spacing:-.02em}
 .honesty p{margin:0;font-size:15px}
 
 @media (max-width:560px){
   .setup-card{padding:26px 20px}
   .themes{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* ===== Mobile layout (founder, 2026-11-04): below 820px the sidebar becomes a hidden drawer and the chat
+   takes the full width. Desktop (>820px) is untouched — these two base rules only hide elements that don't
+   exist above this breakpoint anyway (.menu-btn, .side-backdrop are new, unused at desktop), and everything
+   else lives inside the @media block below. Layout only — no feature, wording or server change. */
+.menu-btn{display:none;background:transparent;color:var(--text)}
+.menu-btn:hover{background:var(--bubble)}
+.side-backdrop{display:none}
+
+@media (max-width:820px){
+  .menu-btn{display:grid}
+  .app{position:relative;overflow:hidden}
+  /* the sidebar becomes an off-canvas drawer: fixed, full height, slid out of view until opened */
+  .side{position:fixed;left:0;top:0;height:100%;height:100dvh;width:280px;max-width:84vw;z-index:150;
+    transform:translateX(-100%);transition:transform var(--ease-slow);box-shadow:var(--shadow-2-deep)}
+  .side.open{transform:translateX(0)}
+  .side-backdrop{display:block;position:fixed;inset:0;z-index:149;background:rgba(15,12,10,.5);
+    opacity:0;pointer-events:none;transition:opacity var(--ease)}
+  .side-backdrop.open{opacity:1;pointer-events:auto}
+  /* with the sidebar out of flow, the chat column is simply the only thing left — full width */
+  .main{width:100%;min-width:0}
+
+  /* tighter side padding everywhere, so nothing is clipped and nothing scrolls sideways */
+  .top{padding:12px 16px 8px;gap:10px}
+  .title{font-size:14px}
+  .col,.gcol,.pview-in,.rem-bar{padding:0 16px}
+  .composer{padding:8px 12px 14px}
+  .cbox{padding:6px 6px 6px 14px;gap:4px}
+  .cap{padding:0 16px}
+  .team-head{padding:14px 16px 12px}
+  .br-in{max-width:none}
 }
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}

@@ -38,9 +38,9 @@ function writeAll(all) {
 }
 
 // The thread title is the user's FIRST message, cut at a word near 60 characters.
-function titleFrom(message, picture) {
+function titleFrom(message, picture, video) {
   const t = message.replace(/\s+/g, ' ').trim();
-  if (!t) return picture === 'screen' ? 'Screen snapshot' : 'Shared a picture';
+  if (!t) return picture === 'screen' ? 'Screen snapshot' : picture ? 'Shared a picture' : video ? 'Shared a video' : 'Shared a picture';
   if (t.length <= TITLE_MAX) return t;
   const cut = t.slice(0, TITLE_MAX), sp = cut.lastIndexOf(' ');
   return (sp > 30 ? cut.slice(0, sp) : cut) + '…';
@@ -127,10 +127,10 @@ function saveTurn(uid, threadId, user, out) {
   if (!t) {
     // 'new' from the Chat (after "New chat"): a fresh MAIN thread. The previous main conversation stays, as a side chat.
     list.forEach(x => { if (x.kind === 'main') x.kind = 'side'; });
-    t = { id: crypto.randomBytes(9).toString('base64url'), kind: 'main', title: user.secret ? 'Chat' : titleFrom(user.message, user.picture), createdAt: now, updatedAt: now, messages: [] };
+    t = { id: crypto.randomBytes(9).toString('base64url'), kind: 'main', title: user.secret ? 'Chat' : titleFrom(user.message, user.picture, user.video), createdAt: now, updatedAt: now, messages: [] };
     list.push(t);
   } else if (!t.titleSet && !t.messages.length) {
-    t.title = user.secret ? 'Chat' : titleFrom(user.message, user.picture);   // a side chat made with "Skip": its first message names it
+    t.title = user.secret ? 'Chat' : titleFrom(user.message, user.picture, user.video);   // a side chat made with "Skip": its first message names it
   }
   ensureIds(t);
   if (out.retitle && !user.secret) { t.title = out.retitle; t.titleSet = true; }
@@ -138,6 +138,7 @@ function saveTurn(uid, threadId, user, out) {
   if (user.picture) mine.picture = user.picture;
   if (user.quote && !user.secret) mine.quote = user.quote;   // Reply: display only, never restored as context
   if (user.voice) mine.voice = { name: user.voice.name, transcript: !!user.voice.transcript };   // the audio is a file, referenced here
+  if (user.video) mine.video = { name: user.video.name };   // a camera/gallery video attachment: the file is referenced here, never seen by the brain
   if (out.aboutReceipt) mine.aboutReceipt = true;   // "how long did that take?" — display only, never restored as context
   t.messages.push(mine);
   if (out.guardian) t.messages.push({ id: newId(), role: 'assistant', text: out.guardian, guardian: true, at: now });
@@ -286,9 +287,9 @@ function deleteMessage(uid, threadId, messageId) {
     deleted = t.messages.splice(i, 1)[0];
     for (let j = i; j < t.messages.length && t.messages[j].role !== 'user'; j++) t.messages[j].afterDeleted = true;
     // an auto-title made from the deleted words goes too (a title the user typed stays)
-    if (!t.titleSet && t.title === titleFrom(deleted.text, deleted.picture)) {
+    if (!t.titleSet && t.title === titleFrom(deleted.text, deleted.picture, deleted.video)) {
       const next = t.messages.find(m => m.role === 'user' && m.text !== SECRET_NOTE);
-      t.title = next ? titleFrom(next.text, next.picture) : 'Chat';
+      t.title = next ? titleFrom(next.text, next.picture, next.video) : 'Chat';
     }
   });
   return t ? { thread: t, deleted } : null;
@@ -312,7 +313,8 @@ function remove(uid, id) {
 function contextOf(t) {
   return t.messages.filter(m => !m.guardian && !m.aboutReceipt && !m.afterDeleted).slice(-CONTEXT).map(m => ({
     role: m.role,
-    content: (m.picture ? (m.picture === 'screen' ? '[shared a screen snapshot] ' : '[shared a picture] ') : m.voice ? '[voice note] ' : '') +
+    content: (m.picture ? (m.picture === 'screen' ? '[shared a screen snapshot] ' : '[shared a picture] ') : m.voice ? '[voice note] ' :
+      m.video ? '[attached a video; its contents are not visible to Sim Sim] ' : '') +
       (m.image ? '[Sim Sim drew this picture and it is showing in this chat.] ' : '') + m.text +
       (m.document ? ' [Sim Sim made a PDF document: "' + m.document.title + '".]' : '') +
       (m.website ? ' [Sim Sim made a website: "' + m.website.title + '" and it is showing in this chat.]' : '')

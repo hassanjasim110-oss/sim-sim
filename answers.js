@@ -181,7 +181,7 @@ async function compose(ask, question, profile, facts, extracts) {
     user_notebook: memory.newestFirst(facts).slice(0, COMPOSE_FACTS).map(f => f.text),
     extracts: extracts.map(e => ({ id: e.id, kind: e.kind, text: e.text.slice(0, 24000) }))
   };
-  const out = parseJson(await askOrEmpty(ask, [{ role: 'system', content: memory.identityLines() + '\n\n' + COMPOSE_RULES },
+  const out = parseJson(await askOrEmpty(ask, [{ role: 'system', content: memory.identityLines() + '\n\n' + COMPOSE_RULES + memory.languageLine(profile) },
     { role: 'user', content: JSON.stringify(payload) }], { effort: 'low' }));
   if (!out || typeof out.answer !== 'string' || !out.answer.trim()) return null;
   const known = new Set(extracts.map(e => e.id));

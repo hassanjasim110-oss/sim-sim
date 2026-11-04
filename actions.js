@@ -12,7 +12,8 @@ const GROUPS = {
   views: { name: 'Views', does: ['Open Discussion, Morning briefing, Open loops, Your pictures, Browser, Settings or Profile'] },
   appearance: { name: 'Appearance', does: ['Change the theme', 'Change the text size', 'Pick a starter face (or the default) for Sim Sim or a Discussion bot'] },
   voice: { name: 'Voice', does: ['Turn Speak answers on or off', "Change Sim Sim's voice (only voices that are set up)"] },
-  memory: { name: 'Memory & loops', does: ['Add an open loop', 'Mark an open loop done', 'Forget a fact from your notebook (always asks)', 'Turn the morning briefing on or off', 'Set the time of the morning briefing'] }
+  memory: { name: 'Memory & loops', does: ['Add an open loop', 'Mark an open loop done', 'Forget a fact from your notebook (always asks)', 'Turn the morning briefing on or off', 'Set the time of the morning briefing'] },
+  media: { name: 'Media & sharing', does: ['Use your camera to take a photo or record a video', 'Open your photo and video gallery'] }
 };
 // Always ask — can't be turned off. Some have no tool yet; they are listed so the rule is in place before any of them exist.
 const FLOOR_LIST = ['Deleting a chat', 'Deleting all chats', 'Forgetting a fact', 'Using a saved login', 'Sending or posting anything outside the app', 'Paying for anything'];

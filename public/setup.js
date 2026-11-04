@@ -1,7 +1,7 @@
 // SIM SIM first-time setup (notebook pages 1 + 2), the theme painter, and the Profile view.
 // The answers are saved on OUR server (POST /api/profile) in the user's notebook. No AI here.
 (function () {
-  const { GENDERS, STATES, BOT_ROLES, THEMES, DEFAULT_THEME } = window.SIMSIM_DATA;
+  const { GENDERS, STATES, COUNTRIES, DEFAULT_COUNTRY, LANGUAGES, DEFAULT_LANGUAGE, BOT_ROLES, THEMES, DEFAULT_THEME } = window.SIMSIM_DATA;
   const $ = id => document.getElementById(id);
   const GREETING = name => 'Hi ' + name + ", I'm Sim Sim. Say my name anytime — or type below, I'm listening.";
 
@@ -58,7 +58,106 @@
     if (g) $('eGender').textContent = '';
   }
 
-  STATES.forEach(s => { const o = document.createElement('option'); o.value = o.textContent = s; $('state').appendChild(o); });
+  // ---- The shared custom dropdown (founder, 2026-11-04 — "Pretty dropdowns + Country + Language"): one component,
+  // used for State, Country and Language. A Design 7 card (not a native <select> popup): opens below the button,
+  // fades + slides in, a live search box filters the list, arrow keys move, Enter picks, Esc/outside-click closes.
+  function makeDropdown({ btn, valueEl, panel, search, list, items, getLabel, getKey, placeholder, onPick }) {
+    let value = null, filtered = items, activeIdx = -1;
+    function paintValue() {
+      const picked = items.find(it => getKey(it) === value);
+      valueEl.textContent = picked ? getLabel(picked) : placeholder;
+      valueEl.classList.toggle('placeholder', !picked);
+    }
+    function paintActive() { [...list.children].forEach((row, i) => row.classList.toggle('dd-active', i === activeIdx)); }
+    function renderList() {
+      list.replaceChildren();
+      if (!filtered.length) { const p = document.createElement('p'); p.className = 'dd-empty'; p.textContent = 'No matches.'; list.appendChild(p); activeIdx = -1; return; }
+      filtered.forEach((it, i) => {
+        const row = document.createElement('button');
+        row.type = 'button'; row.className = 'dd-row'; row.setAttribute('role', 'option');
+        row.setAttribute('aria-selected', String(getKey(it) === value));
+        row.innerHTML = '<svg class="dd-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg><span></span>';
+        row.querySelector('span').textContent = getLabel(it);
+        row.addEventListener('click', () => pick(it));
+        row.addEventListener('mouseenter', () => { activeIdx = i; paintActive(); });
+        list.appendChild(row);
+      });
+      activeIdx = filtered.findIndex(it => getKey(it) === value);
+      if (activeIdx < 0) activeIdx = 0;
+      paintActive();
+    }
+    function pick(it) { value = getKey(it); paintValue(); close(); btn.focus(); if (onPick) onPick(it); }
+    function filter(q) {
+      const term = q.trim().toLowerCase();
+      filtered = term ? items.filter(it => getLabel(it).toLowerCase().includes(term)) : items;
+      renderList();
+    }
+    function open() {
+      if (!panel.hidden) return;
+      filtered = items; search.value = ''; renderList();
+      panel.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      search.focus();
+    }
+    function close() {
+      if (panel.hidden) return;
+      panel.hidden = true; btn.setAttribute('aria-expanded', 'false');
+    }
+    btn.addEventListener('click', () => { if (panel.hidden) open(); else close(); });
+    search.addEventListener('input', () => filter(search.value));
+    search.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, filtered.length - 1); paintActive(); const r = list.children[activeIdx]; if (r) r.scrollIntoView({ block: 'nearest' }); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); paintActive(); const r = list.children[activeIdx]; if (r) r.scrollIntoView({ block: 'nearest' }); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (filtered[activeIdx]) pick(filtered[activeIdx]); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); btn.focus(); }
+    });
+    document.addEventListener('click', e => { if (!panel.hidden && !btn.contains(e.target) && !panel.contains(e.target)) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden && (panel.contains(document.activeElement) || btn.contains(document.activeElement))) { close(); btn.focus(); } });
+    paintValue();
+    return {
+      setValue(v) { value = v; paintValue(); },
+      getValue() { return value; },
+      close
+    };
+  }
+
+  // Country (above State) and Language dropdowns are built once with the full lists; State's dropdown is rebuilt
+  // with just the 50 states + DC (it never needs search across country names, so its own instance is simplest).
+  const countryDd = makeDropdown({
+    btn: $('countryBtn'), valueEl: $('countryValue'), panel: $('countryPanel'), search: $('countrySearch'), list: $('countryList'),
+    items: COUNTRIES, getLabel: c => c, getKey: c => c, placeholder: 'Choose your country',
+    onPick: c => { $('eCountry').textContent = ''; adaptStateField(c); }
+  });
+  const stateDd = makeDropdown({
+    btn: $('stateBtn'), valueEl: $('stateValue'), panel: $('statePanel'), search: $('stateSearch'), list: $('stateList'),
+    items: STATES, getLabel: s => s, getKey: s => s, placeholder: 'Choose your state',
+    onPick: () => { $('eState').textContent = ''; }
+  });
+  const languageDd = makeDropdown({
+    btn: $('languageBtn'), valueEl: $('languageValue'), panel: $('languagePanel'), search: $('languageSearch'), list: $('languageList'),
+    items: LANGUAGES, getLabel: l => l.name, getKey: l => l.code, placeholder: 'Choose your language',
+    onPick: () => { $('eLanguage').textContent = ''; }
+  });
+  languageDd.setValue(DEFAULT_LANGUAGE);   // "Default: English" — true for a brand-new setup, overwritten below when editing
+
+  // STATE ADAPTS to Country (founder's rule): United States keeps the states-+-DC dropdown; any other country's
+  // state/province/region becomes free text, optional. Switching never silently deletes a saved value — the
+  // dropdown's current pick carries over into the text field, and vice versa when a typed value matches a real state.
+  function adaptStateField(country) {
+    const isUS = country === DEFAULT_COUNTRY;
+    if (isUS) {
+      const typed = $('stateText').value.trim();
+      if (typed && STATES.includes(typed)) stateDd.setValue(typed);   // a carried-over match: select it
+      $('stateLabel').textContent = 'STATE';
+    } else {
+      const picked = stateDd.getValue();
+      if (picked && !$('stateText').value.trim()) $('stateText').value = picked;   // carry the dropdown's pick over
+      $('stateLabel').textContent = 'STATE / PROVINCE / REGION';
+    }
+    $('stateDd').hidden = !isUS;
+    $('stateText').hidden = isUS;
+    if (!isUS) stateDd.close();
+    $('eState').textContent = '';
+  }
 
   // ---- Page 2: the theme gallery (every theme, for every user) ----
   THEMES.forEach(t => {
@@ -113,19 +212,28 @@
     (n === 1 ? $('callName') : $('bot1')).focus({ preventScroll: true });
   }
 
+  function currentCountry() { return countryDd.getValue(); }
+  function currentState() { return $('stateDd').hidden ? $('stateText').value.trim() : (stateDd.getValue() || ''); }
+
   function showSetup(edit) {
     editing = edit;
     const p = edit ? profile : null;
     $('callName').value = p ? p.callName : '';
     pickGender(p ? p.gender : '');
     $('age').value = p ? p.age : '';
-    $('state').value = p ? p.state : '';
+    const country = p ? (p.country || DEFAULT_COUNTRY) : null;   // existing users default to US; new users pick their own
+    countryDd.setValue(country);
+    $('stateText').value = '';
+    stateDd.setValue(null);
+    adaptStateField(country || DEFAULT_COUNTRY);   // no country picked yet (new user): the familiar US states dropdown shows first
+    if (p) { if (country === DEFAULT_COUNTRY) stateDd.setValue(p.state); else $('stateText').value = p.state || ''; }
+    languageDd.setValue(p ? (p.language || DEFAULT_LANGUAGE) : DEFAULT_LANGUAGE);   // Default: English, for everyone
     $('bot1').value = p ? p.botNames[0] : BOT_ROLES[0].role;
     $('bot2').value = p ? p.botNames[1] : BOT_ROLES[1].role;
     $('bot1').dispatchEvent(new Event('input'));
     $('bot2').dispatchEvent(new Event('input'));
     pickTheme(p ? p.themeId : DEFAULT_THEME);
-    ['eCallName', 'eGender', 'eAge', 'eState', 'eBots', 'eSave'].forEach(id => { $(id).textContent = ''; });
+    ['eCallName', 'eGender', 'eAge', 'eCountry', 'eState', 'eLanguage', 'eBots', 'eSave'].forEach(id => { $(id).textContent = ''; });
     $('cancelEdit').hidden = !edit;
     showView('setup');
     showPage(1);
@@ -134,16 +242,19 @@
   // ---- Page 1 -> Page 2 ----
   $('continue').addEventListener('click', () => {
     const name = $('callName').value.trim(), age = $('age').value.trim();
+    const country = currentCountry(), isUS = country === DEFAULT_COUNTRY;
     const checks = [
-      ['eCallName', 'callName', name ? '' : 'Tell me what to call you.'],
-      ['eGender', null, pickedGender ? '' : 'Pick one. "Prefer not to say" is fine.'],
-      ['eAge', 'age', /^\d+$/.test(age) && +age >= 5 && +age <= 120 ? '' : 'Enter your age as a whole number from 5 to 120, like 27.'],
-      ['eState', 'state', $('state').value ? '' : 'Choose your state.']
+      ['eCallName', $('callName'), name ? '' : 'Tell me what to call you.'],
+      ['eGender', $('gender').querySelector('[tabindex="0"]'), pickedGender ? '' : 'Pick one. "Prefer not to say" is fine.'],
+      ['eAge', $('age'), /^\d+$/.test(age) && +age >= 5 && +age <= 120 ? '' : 'Enter your age as a whole number from 5 to 120, like 27.'],
+      ['eCountry', $('countryBtn'), country ? '' : 'Choose your country.'],
+      // Non-US: the state/province/region is free text and optional, never required.
+      ['eState', $('stateBtn'), isUS && !stateDd.getValue() ? 'Choose your state.' : '']
     ];
     let first = null;
     checks.forEach(([err, field, msg]) => {
       $(err).textContent = msg;
-      if (msg && !first) first = field ? $(field) : $('gender').querySelector('[tabindex="0"]');
+      if (msg && !first) first = field;
     });
     if (first) { first.focus(); return; }
     showPage(2);
@@ -171,7 +282,8 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           callName: $('callName').value.trim(), gender: pickedGender, age: Number($('age').value),
-          state: $('state').value, botNames, themeId: pickedTheme
+          country: currentCountry(), state: currentState(), language: languageDd.getValue() || DEFAULT_LANGUAGE,
+          botNames, themeId: pickedTheme
         })
       });
       if (r.status === 401) { window.dispatchEvent(new Event('simsim:needsignin')); return; }
@@ -215,7 +327,11 @@
   function renderBasics() {
     if (!profile) return;
     const p = profile, list = $('basicsList');
-    const rows = [['Call me', p.callName], ['Gender', p.gender], ['Age', p.age], ['State', p.state],
+    const country = p.country || DEFAULT_COUNTRY;
+    const stateLabel = country === DEFAULT_COUNTRY ? 'State' : 'State / Province / Region';
+    const lang = LANGUAGES.find(l => l.code === (p.language || DEFAULT_LANGUAGE));
+    const rows = [['Call me', p.callName], ['Gender', p.gender], ['Age', p.age], ['Country', country], [stateLabel, p.state || '—'],
+      ['Language', lang ? lang.name : 'English'],
       [BOT_ROLES[0].role + ' bot', p.botNames[0]], [BOT_ROLES[1].role + ' bot', p.botNames[1]], ['Theme', themeById(p.themeId).name]];
     list.replaceChildren();
     rows.forEach(([k, v]) => {
@@ -287,6 +403,9 @@
     // A reliable, idempotent open for the Action Layer (founder, 2026-11-01): never a toggle, and a no-op before the
     // profile has loaded (same guard the sidebar's own Profile button uses).
     openProfile: () => { if (profile) openProfileView(); },
-    isProfileOpen: () => !$('profileView').hidden
+    isProfileOpen: () => !$('profileView').hidden,
+    // The user's chosen language code (e.g. "ur-PK"), for wake.js/app.js to give speech recognition — "en-US" before
+    // a profile has loaded or when none was ever picked (founder, 2026-11-04 — "Pretty dropdowns + Country + Language").
+    recognitionLang: () => (profile && profile.language) || DEFAULT_LANGUAGE
   };
 })();

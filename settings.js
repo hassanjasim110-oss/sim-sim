@@ -11,7 +11,7 @@ const DEFAULTS = {
   picksConsent: false,       // NO READER: consent flag only ("let my picks help improve Sim Sim for everyone")
   // READER: server — the Action Layer (actions.js): what Sim Sim may do in the app, per group: allow | ask | never
   // (founder's defaults 2026-10-31: all allow; the floor actions in actions.js ask no matter what)
-  permissions: { chats: 'allow', views: 'allow', appearance: 'allow', voice: 'allow', memory: 'allow' }
+  permissions: { chats: 'allow', views: 'allow', appearance: 'allow', voice: 'allow', memory: 'allow', media: 'allow' }
 };
 const CHOICES = { textSize: ['comfortable', 'large'], speechRate: ['slower', 'normal', 'faster'], voice: require('./voice.js').NAMES };
 const PERMISSION = ['allow', 'ask', 'never'];

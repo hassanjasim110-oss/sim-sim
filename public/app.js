@@ -56,6 +56,11 @@ function idle() {
 
 // ---- Messages ----
 function scrollDown() { thread.scrollTop = thread.scrollHeight; }
+// A render can finish its OWN synchronous DOM work before the browser has settled the final height a moment
+// later (a web font swapping in on first paint, an image deciding its box size after decode) — one scrollDown()
+// right then can measure a scrollHeight that is about to grow, and land short (founder's end-check round 5B,
+// 2026-11-03). This scrolls now AND again after the next two paint frames, so the final height always wins.
+function scrollDownSettled() { scrollDown(); requestAnimationFrame(() => requestAnimationFrame(scrollDown)); }
 function hideEmpty() { const e = $('empty'); if (e) e.hidden = true; }
 
 // Message times, WhatsApp-style (founder, 2026-10-31; 1-on-1 chat only — Discussion never calls these).
@@ -91,7 +96,8 @@ function stampMsgTime(msg, ms) {
 // quote: { who, text } — the message this one replies to (shown on top of the bubble; presentation only)
 // voice: { src, transcript } — a voice note: an audio player, with what Sim Sim heard (or that it heard nothing) under it
 // atMs: when this message was sent — now, for a message just typed; the stored `at`, for history (loadThread)
-function addUser(text, pictureUrl, quote, voice, atMs) {
+// videoUrl: a camera/gallery video attached with this message — inline playback only, never seen by the brain
+function addUser(text, pictureUrl, quote, voice, atMs, videoUrl) {
   const d = document.createElement('div');
   d.className = 'user';
   if (quote) d.appendChild(quoteBlock(quote));
@@ -117,6 +123,15 @@ function addUser(text, pictureUrl, quote, voice, atMs) {
     img.alt = 'Picture you shared';
     img.addEventListener('load', scrollDown);
     d.appendChild(img);
+  }
+  if (videoUrl) {   // a video you attached — plays inline; Sim Sim can never see inside it
+    const v = document.createElement('video');
+    v.className = 'user-video';
+    v.controls = true;
+    v.src = videoUrl;
+    v.setAttribute('aria-label', 'Video you shared');
+    v.addEventListener('loadedmetadata', scrollDownSettled);
+    d.appendChild(v);
   }
   if (text) d.appendChild(document.createTextNode(text));
   stampTime(d, atMs);
@@ -308,7 +323,7 @@ async function postChat(text, extra) {
     signal: x.signal,   // the main composer's Stop (Screen Watch and Discussion never pass one)
     body: JSON.stringify(Object.assign({ message: text, tz: myTimezone() }, x.viaWake ? { viaWake: true } : {}, x.picture ? { image: x.picture } : {},
       x.screen ? { screen: true } : {}, x.circled ? { circled: true } : {}, x.thread ? { thread: x.thread } : {}, x.quote ? { quote: x.quote } : {},
-      x.voice ? { voice: x.voice } : {}))
+      x.voice ? { voice: x.voice } : {}, x.video ? { video: x.video } : {}))
   });
   return { r, data: await r.json().catch(() => ({})) };
 }
@@ -369,7 +384,7 @@ async function reconcileNow(p) {
     if (!fresh.length || !p.msg.isConnected) return;
     p.msg.remove();
     fresh.forEach(m => renderSavedMessage(t, m));
-    scrollDown();
+    scrollDownSettled();
     pending = null;
   } finally { p.reconciling = false; }
 }
@@ -378,6 +393,7 @@ window.addEventListener('focus', checkPending);
 
 // opts.viaWake: the message came from wake-by-name (the server uses it for "good morning" briefings)
 // opts.picture: { dataUrl, previewUrl } — a picture to show Sim Sim with this message (1-on-1 chat only)
+// opts.video: { dataUrl, previewUrl } — a video (camera or gallery) to attach for inline playback (never seen by the brain)
 // opts.quote: { who, text } — the message this one replies to (Reply)
 async function send(text, opts) {
   const quote = opts && opts.quote;
@@ -388,6 +404,7 @@ async function send(text, opts) {
   busy = true; chatAbort = new AbortController(); setChatBusy(true);
   const myChat = chatId;
   const picture = opts && opts.picture;
+  const video = opts && opts.video;
   stopSpeaking();
   hideEmpty();
   cancelCards('Cancelled — you sent a new message.');   // the server drops the held action too: it never fires later
@@ -396,7 +413,8 @@ async function send(text, opts) {
   // Every message already on screen, before this turn's own two bubbles exist — reconcileNow()'s guide to what's
   // genuinely NEW if the live view has to fall back to reading storage directly.
   const knownMids = new Set([...col.querySelectorAll('[data-mid]')].map(e => e.dataset.mid));
-  const you = voiceNote ? addUser('', null, quote, { src: voiceNote.url, transcript: voiceNote.transcript }, sentAt) : addUser(text, picture && picture.previewUrl, quote, null, sentAt);
+  const you = voiceNote ? addUser('', null, quote, { src: voiceNote.url, transcript: voiceNote.transcript }, sentAt)
+    : addUser(text, picture && picture.previewUrl, quote, null, sentAt, video && video.previewUrl);
   setPill('Thinking', 'busy');
   const msg = addSim(), slot = msg.querySelector('.txt');
   activeMsg = msg;
@@ -422,7 +440,7 @@ async function send(text, opts) {
   const unwatch = window.SimSimBrowser ? window.SimSimBrowser.watch(slot) : () => {};
   activeUnwatch = unwatch;
   try {
-    const { r, data } = await postChat(text, { viaWake: opts && opts.viaWake, picture: picture && picture.dataUrl, thread: threadId || 'new', quote,
+    const { r, data } = await postChat(text, { viaWake: opts && opts.viaWake, picture: picture && picture.dataUrl, video: video && video.dataUrl, thread: threadId || 'new', quote,
       voice: voiceNote ? { audio: voiceNote.dataUrl, transcript: voiceNote.transcript } : null, signal: chatAbort.signal });
     if (r.status === 401) signedOut = true;
     else if (r.ok && typeof data.reply === 'string') { reply = data.reply; turnId = data.turnId || null; memoryChanged = !!data.memoryChanged; image = data.image || null; sources = data.sources || null; browsed = data.browser === true; docFile = data.document || null; siteFile = data.website || null;
@@ -461,9 +479,10 @@ async function send(text, opts) {
   if (reply !== null) addOptions(msg, 'Sim Sim', reply, image && image.url);
   if (saved) { attachActions(you, saved.tid, saved.ids.user, null, true); attachActions(msg, saved.tid, saved.ids.reply, null, false); }
   if (reply !== null && image) {
-    showImage(slot, image, reply);
+    showImage(slot, image, reply);   // its own load/error listeners call scrollDown(); this catches the rest of the card (caption, buttons)
     stampMsgTime(msg, Date.now());
     addReceipt(msg, receipt);
+    scrollDownSettled();
     speak(reply);
   } else if (reply !== null) {
     if (guardian) {   // the deadline guardian's one gentle line comes first, as its own little message
@@ -482,12 +501,12 @@ async function send(text, opts) {
     if (siteFile) addWebsite(msg, siteFile);   // a real, working page: its card with Open/Download (sent only once the file exists)
     if (sources && sources.length) addCitation(msg, sources, browsed);   // answers from the Book (or Sim Sim's browser) show where they came from
     addReceipt(msg, receipt);
-    scrollDown(); speak(guardian ? guardian + ' ' + reply : reply);
+    scrollDownSettled(); speak(guardian ? guardian + ' ' + reply : reply);
     if (loopsChanged) window.dispatchEvent(new Event('simsim:loopschanged'));
     if (turnId && window.SimSimMemory) window.SimSimMemory.learnFrom(turnId, msg);   // quiet "Remembered:" chips, if any
     if (memoryChanged && window.SimSimMemory) window.SimSimMemory.refreshIfOpen();
   }
-  else { msg.classList.add('error'); slot.textContent = error || 'Sim Sim could not get an answer.'; scrollDown(); idle(); }
+  else { msg.classList.add('error'); slot.textContent = error || 'Sim Sim could not get an answer.'; scrollDownSettled(); idle(); }
 }
 
 // ---- The Action Layer on the page: what Sim Sim did in the app (effects) and its allowance cards ----
@@ -544,7 +563,12 @@ function applyEffects(effects) {
     if (e.type === 'loops') window.dispatchEvent(new Event('simsim:loopschanged'));
     if (e.type === 'memory' && window.SimSimMemory) window.SimSimMemory.refreshIfOpen();
     if (e.type === 'converted' || e.type === 'retitle') window.dispatchEvent(new Event('simsim:chatsaved'));
-    if (e.type === 'view' && VIEW_OPENERS[e.view]) setTimeout(() => openAppView(e.view), 900);   // a moment to read the line first
+    // The Browser panel opens right away — it's its own honest reply now (round 7B, 2026-11-02), not a claim to
+    // read first; waiting 900ms here (plausible enough for an open-ended ~30s gap once something else was also
+    // going on) is exactly the "later poll or refresh" the fix is supposed to not depend on. Every other view still
+    // gets its moment to let the line be read before the screen changes under it.
+    if (e.type === 'view' && e.view === 'browser' && VIEW_OPENERS.browser) openAppView('browser');
+    else if (e.type === 'view' && VIEW_OPENERS[e.view]) setTimeout(() => openAppView(e.view), 900);   // a moment to read the line first
   });
 }
 // The allowance card, inside the chat: "Sim Sim wants to: …" — Allow · Always allow <Group> · Not now (floor actions: no "Always").
@@ -757,21 +781,25 @@ $('form').addEventListener('submit', e => {
   // While busy, Send IS Stop (founder, 2026-10-31): a real click on the button stops it; Enter (no submitter) is inert.
   if (busy) { if (e.submitter === sendBtn) stopChat(); return; }
   const text = input.value.trim();
-  if (!text && !attached) return;
+  if (!text && !attached && !attachedVideo) return;
   const viaWake = sendViaWake;
   captureEnd('sent', null, MAIN_BOX);   // pressing Send during a voice capture: the capture is over (the auto-send ended it already)
   input.value = '';
   fitInput();
-  const picture = attached, quote = replyTo;
+  const picture = attached, video = attachedVideo, quote = replyTo;
   clearAttachment(false);
+  clearVideoAttachment(false);
   clearReply();
-  send(text, picture || quote || viaWake ? { picture, quote, viaWake } : undefined);
+  send(text, picture || video || quote || viaWake ? { picture, video, quote, viaWake } : undefined);
 });
 
-// ---- Showing Sim Sim a picture (attach button, paste, or drag onto the chat) ----
+// ---- Showing Sim Sim a picture or video (the up-arrow menu: Camera / Gallery, paste, or drag onto the chat) ----
 const PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const PICTURE_MAX = 5 * 1024 * 1024;
-let attached = null;   // { dataUrl, previewUrl }
+const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+const VIDEO_MAX = 20 * 1024 * 1024;
+let attached = null;       // { dataUrl, previewUrl } — a picture, Vision pipeline
+let attachedVideo = null;  // { dataUrl, previewUrl } — a video, inline playback only (never seen by the brain)
 
 function attachError(text) {
   $('attachErr').textContent = text;
@@ -784,6 +812,13 @@ function clearAttachment(revoke) {
   $('attachThumb').removeAttribute('src');
   $('attachFile').value = '';
 }
+function clearVideoAttachment(revoke) {
+  if (attachedVideo && revoke) URL.revokeObjectURL(attachedVideo.previewUrl);
+  attachedVideo = null;
+  $('attachVideoPreview').hidden = true;
+  $('attachVideoThumb').removeAttribute('src');
+  $('attachFile').value = '';
+}
 function attachPicture(file) {
   attachError('');
   if (!file) return;
@@ -792,6 +827,7 @@ function attachPicture(file) {
   const reader = new FileReader();
   reader.onload = () => {
     clearAttachment(true);
+    clearVideoAttachment(true);   // a message carries a picture OR a video, never both
     attached = { dataUrl: reader.result, previewUrl: URL.createObjectURL(file) };
     $('attachThumb').src = attached.previewUrl;
     $('attachName').textContent = file.name || 'Pasted picture';
@@ -800,11 +836,89 @@ function attachPicture(file) {
   };
   reader.readAsDataURL(file);
 }
+function attachVideo(file) {
+  attachError('');
+  if (!file) return;
+  if (!VIDEO_TYPES.includes(file.type)) { attachError('Sim Sim can attach MP4, WebM or MOV videos.'); return; }
+  if (file.size > VIDEO_MAX) { attachError('That video is too large — try a shorter one.'); return; }   // nothing is sent
+  const reader = new FileReader();
+  reader.onload = () => {
+    clearAttachment(true);
+    clearVideoAttachment(true);
+    attachedVideo = { dataUrl: reader.result, previewUrl: URL.createObjectURL(file) };
+    $('attachVideoThumb').src = attachedVideo.previewUrl;
+    $('attachVideoName').textContent = file.name || 'Video';
+    $('attachVideoPreview').hidden = false;
+    input.focus();
+  };
+  reader.readAsDataURL(file);
+}
 function chatIsOpen() { return !$('app').hidden && !$('thread').hidden && !(window.SimSimGroup && window.SimSimGroup.isOpen()); }
 
-$('attach').addEventListener('click', () => $('attachFile').click());
-$('attachFile').addEventListener('change', () => attachPicture($('attachFile').files[0]));
+// ---- Media & sharing permission (founder, 2026-11-04): Camera and Gallery are gated by Settings → Permissions, same
+// allow|ask|never shape as every other group — but there is no Action-Layer tool here (the user taps these directly;
+// the brain never chooses to open a camera), so the check runs entirely in the composer, before anything opens. ----
+function confirmMedia(action) {
+  if ($('mediaConfirm')) return;
+  const box = document.createElement('div');
+  box.id = 'mediaConfirm';
+  box.className = 'confirm-overlay';
+  const card = document.createElement('div');
+  card.className = 'confirm-card';
+  card.setAttribute('role', 'alertdialog');
+  card.setAttribute('aria-modal', 'true');
+  card.setAttribute('aria-labelledby', 'mediaConfirmMsg');
+  const msg = document.createElement('p');
+  msg.id = 'mediaConfirmMsg';
+  msg.textContent = 'Sim Sim wants to: use your camera or photo library for this message.';
+  const row = document.createElement('div');
+  row.className = 'confirm-btns';
+  const yes = document.createElement('button');
+  yes.type = 'button'; yes.className = 'btn-primary'; yes.textContent = 'Allow';
+  const always = document.createElement('button');
+  always.type = 'button'; always.className = 'ghost-btn'; always.textContent = 'Always allow Media & sharing';
+  const no = document.createElement('button');
+  no.type = 'button'; no.className = 'textlink'; no.textContent = 'Not now';
+  row.append(yes, always, no);
+  card.append(msg, row);
+  box.append(card);
+  document.body.append(box);
+  const close = () => { box.remove(); document.removeEventListener('keydown', onKey); };
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKey);
+  box.addEventListener('click', e => { if (e.target === box) close(); });
+  yes.addEventListener('click', () => { close(); action(); });
+  always.addEventListener('click', () => { close(); if (window.SimSimSettings) window.SimSimSettings.alwaysAllow('media'); action(); });
+  no.addEventListener('click', close);
+  yes.focus();
+}
+function mediaGate(action) {
+  const level = window.SimSimSettings ? window.SimSimSettings.permissionFor('media') : 'allow';
+  if (level === 'never') { attachError('Camera and Gallery are off — turn them on in Settings → Permissions.'); return; }
+  if (level === 'ask') { confirmMedia(action); return; }
+  action();
+}
+
+// ---- The up-arrow menu: Camera · Gallery ----
+function closeAttachMenu() {
+  $('attachMenu').hidden = true;
+  $('attachMenuBtn').setAttribute('aria-expanded', 'false');
+}
+function openAttachMenu() {
+  $('attachMenu').hidden = false;
+  $('attachMenuBtn').setAttribute('aria-expanded', 'true');
+}
+$('attachMenuBtn').addEventListener('click', () => { if ($('attachMenu').hidden) openAttachMenu(); else closeAttachMenu(); });
+document.addEventListener('click', e => { if (!$('attachMenu').hidden && !e.target.closest('.attach-menu-wrap')) closeAttachMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('attachMenu').hidden) { closeAttachMenu(); $('attachMenuBtn').focus(); } });
+
+$('attachGallery').addEventListener('click', () => { closeAttachMenu(); mediaGate(() => $('attachFile').click()); });
+$('attachFile').addEventListener('change', () => {
+  const file = $('attachFile').files[0];
+  if (file && file.type.startsWith('video/')) attachVideo(file); else attachPicture(file);
+});
 $('attachRemove').addEventListener('click', () => { clearAttachment(true); attachError(''); input.focus(); });
+$('attachVideoRemove').addEventListener('click', () => { clearVideoAttachment(true); attachError(''); input.focus(); });
 document.addEventListener('paste', e => {
   if (!chatIsOpen()) return;
   const item = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => i.kind === 'file' && i.type.startsWith('image/'));
@@ -819,6 +933,98 @@ dropZone.addEventListener('drop', e => {
   const file = [...(e.dataTransfer ? e.dataTransfer.files : [])][0];
   if (file) { e.preventDefault(); attachPicture(file); }
 });
+
+// ---- Camera: a live preview (getUserMedia), a photo shutter, and a short video recorder (MediaRecorder) ----
+let camStream = null, camRecorder = null, camChunks = [], camCaptured = null, camRecordTimer = null;
+const CAM_VIDEO_MAX_MS = 20000;   // a short clip keeps the point across and the file small
+function camError(text) { $('camErr').textContent = text; $('camErr').hidden = !text; }
+function camStopTracks() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  clearTimeout(camRecordTimer);
+  if (camRecorder && camRecorder.state !== 'inactive') { try { camRecorder.stop(); } catch (e) {} }
+  camRecorder = null; camChunks = [];
+}
+function camShowLive() {
+  $('camPhoto').hidden = true; $('camPhoto').removeAttribute('src');
+  $('camClip').hidden = true; $('camClip').pause(); $('camClip').removeAttribute('src');
+  $('camLive').hidden = false;
+  $('camLiveBar').hidden = false;
+  $('camPreviewBar').hidden = true;
+  $('camRecordBtn').textContent = 'Record video';
+  $('camRecDot').hidden = true;
+  camCaptured = null;
+}
+async function openCamera() {
+  camError('');
+  $('cameraView').hidden = false;
+  camShowLive();
+  try { camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); }
+  catch (e) {
+    try { camStream = await navigator.mediaDevices.getUserMedia({ video: true }); }   // no mic: a photo still works
+    catch (e2) { camError("Sim Sim couldn't open your camera — check your browser's camera permission."); return; }
+  }
+  $('camLive').srcObject = camStream;
+}
+function closeCamera() {
+  camStopTracks();
+  $('cameraView').hidden = true;
+  $('camLive').srcObject = null;
+}
+$('camCancel').addEventListener('click', closeCamera);
+$('cameraView').addEventListener('keydown', e => { if (e.key === 'Escape') closeCamera(); });
+
+$('camShutter').addEventListener('click', () => {
+  const v = $('camLive'), c = document.createElement('canvas');
+  c.width = v.videoWidth || 1280; c.height = v.videoHeight || 720;
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  c.toBlob(blob => {
+    if (!blob) { camError("Sim Sim couldn't take that photo — try again."); return; }
+    camCaptured = { kind: 'photo', blob };
+    $('camPhoto').src = URL.createObjectURL(blob);
+    $('camLive').hidden = true; $('camPhoto').hidden = false;
+    $('camLiveBar').hidden = true; $('camPreviewBar').hidden = false;
+  }, 'image/jpeg', 0.9);
+});
+
+$('camRecordBtn').addEventListener('click', () => {
+  if (camRecorder && camRecorder.state === 'recording') { camRecorder.stop(); return; }   // tap again to stop early
+  if (!camStream) return;
+  camError('');
+  let mime = '';
+  for (const t of ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) { mime = t; break; }
+  }
+  try { camRecorder = mime ? new MediaRecorder(camStream, { mimeType: mime }) : new MediaRecorder(camStream); }
+  catch (e) { camError("Sim Sim couldn't record video on this browser."); return; }
+  camChunks = [];
+  camRecorder.ondataavailable = e => { if (e.data && e.data.size) camChunks.push(e.data); };
+  camRecorder.onstop = () => {
+    clearTimeout(camRecordTimer);
+    $('camRecDot').hidden = true;
+    $('camRecordBtn').textContent = 'Record video';
+    const blob = new Blob(camChunks, { type: (camRecorder && camRecorder.mimeType) || 'video/webm' });
+    camChunks = [];
+    if (!blob.size) { camError("That recording didn't come through — try again."); return; }
+    camCaptured = { kind: 'video', blob };
+    $('camClip').src = URL.createObjectURL(blob);
+    $('camLive').hidden = true; $('camClip').hidden = false;
+    $('camLiveBar').hidden = true; $('camPreviewBar').hidden = false;
+  };
+  camRecorder.start();
+  $('camRecDot').hidden = false;
+  $('camRecordBtn').textContent = 'Stop recording';
+  camRecordTimer = setTimeout(() => { if (camRecorder && camRecorder.state === 'recording') camRecorder.stop(); }, CAM_VIDEO_MAX_MS);
+});
+
+$('camRetake').addEventListener('click', camShowLive);
+$('camUse').addEventListener('click', () => {
+  if (!camCaptured) return;
+  const type = (camCaptured.blob.type || (camCaptured.kind === 'photo' ? 'image/jpeg' : 'video/webm')).split(';')[0].trim();
+  const file = new File([camCaptured.blob], camCaptured.kind === 'photo' ? 'camera-photo.jpg' : 'camera-video.webm', { type });
+  closeCamera();
+  if (camCaptured.kind === 'photo') attachPicture(file); else attachVideo(file);
+});
+$('attachCamera').addEventListener('click', () => { closeAttachMenu(); mediaGate(openCamera); });
 
 // ---- Speak answers ON/OFF: ONE source of truth, the user's settings on OUR server (settings.speakAnswers) ----
 // settings.js loads it at sign-in (applySpeak); the top bar and Settings both change it (setSpeak), and it follows the account.
@@ -937,14 +1143,27 @@ function speak(text, force, voiceName) {
   })();
 }
 // The browser's built-in voice, one sentence at a time (Chrome can cut off long single utterances).
+// A device voice in the user's chosen Language when one exists, else the browser's default (founder, 2026-11-04 —
+// "Pretty dropdowns + Country + Language"). getVoices() can still be empty right after page load (Chrome loads
+// them async); a miss here just means the default voice speaks, never an error.
+function pickVoiceFor(lang) {
+  if (!window.speechSynthesis) return null;
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  return voices.find(v => v.lang === lang) || voices.find(v => v.lang && v.lang.split('-')[0] === lang.split('-')[0]) || null;
+}
 function browserSpeak(chunks, run, finish) {
   if (!window.speechSynthesis) { finish(); return; }
   const parts = chunks.join(' ').match(/[^.!?\n]+[.!?]*/g) || chunks;
   const list = parts.map(p => p.trim()).filter(Boolean);
   if (!list.length) { finish(); return; }
+  const lang = window.SimSimSetup ? window.SimSimSetup.recognitionLang() : 'en-US';
+  const voice = pickVoiceFor(lang);
   list.forEach((part, i) => {
     const u = new SpeechSynthesisUtterance(part);
     u.rate = speechRate;
+    u.lang = lang;
+    if (voice) u.voice = voice;
     if (i === list.length - 1) { speaking = u; u.onend = u.onerror = () => { if (speaking === u && speakRun === run) { speaking = null; if (!busy) idle(); } }; }
     speechSynthesis.speak(u);
   });
@@ -1069,7 +1288,9 @@ voiceBox(MAIN_BOX);
 // One continuous recognizer for the mic button. carried: words heard before Chrome restarted it mid-request.
 function listenMic(carried) {
   const r = new SR();
-  r.lang = navigator.language || 'en-US';
+  // Listens in the user's chosen Language (Profile → Edit basics; founder, 2026-11-04 — "Pretty dropdowns +
+  // Country + Language"), English before a profile has loaded or when none was ever picked.
+  r.lang = window.SimSimSetup ? window.SimSimSetup.recognitionLang() : (navigator.language || 'en-US');
   r.continuous = true;        // a pause mid-sentence must not end the request; the 3-second rule does
   r.interimResults = true;
   r.said = '';
@@ -1088,6 +1309,7 @@ function listenMic(carried) {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed')
       say('The mic is blocked. Click the icon at the left of the address bar, set Microphone to Allow, then reload.');
     else if (e.error === 'audio-capture') say('No microphone was found.');
+    else if (e.error === 'language-not-supported') say("This browser can't listen in the language you picked. Pick a different one in Profile → Edit basics, or switch back to English.");
     else say('The mic stopped (' + e.error + '). Try again.');
   };
   r.onend = () => {
@@ -1126,6 +1348,34 @@ document.querySelectorAll('.nav button').forEach(b => b.addEventListener('click'
   const label = b.dataset.label;
   navNote(['Chat', 'Browser', 'Your pictures', 'Discussion', 'Morning briefing', 'Open loops'].includes(label) ? '' : label + ' is coming in a later step.');
 }));
+
+// ---- Mobile sidebar drawer (founder, 2026-11-04, phones ≤820px): the sidebar is a hidden drawer there,
+// opened by the ☰ button beside the chat title. The CSS only applies the slide-out transform under that
+// width, so toggling these classes is a harmless no-op at desktop sizes.
+const sideDrawer = $('side'), sideBackdrop = $('sideBackdrop'), menuBtn = $('menuBtn');
+function closeDrawer() {
+  sideDrawer.classList.remove('open');
+  sideBackdrop.classList.remove('open');
+  menuBtn.setAttribute('aria-expanded', 'false');
+}
+function openDrawer() {
+  sideDrawer.classList.add('open');
+  sideBackdrop.classList.add('open');
+  menuBtn.setAttribute('aria-expanded', 'true');
+}
+menuBtn.addEventListener('click', () => {
+  if (sideDrawer.classList.contains('open')) closeDrawer(); else openDrawer();
+});
+sideBackdrop.addEventListener('click', closeDrawer);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && sideDrawer.classList.contains('open')) closeDrawer();
+});
+// Closes automatically once the user picks any chat or view inside it — any button/link tap, except the
+// "+" that only reveals the inline "Name this side chat" form (that form lives inside the drawer itself).
+sideDrawer.addEventListener('click', e => {
+  const t = e.target.closest('button,a');
+  if (t && t.id !== 'sideAdd') closeDrawer();
+});
 
 // ---- The header: names whichever view is actually open (founder, 2026-11-01 — it used to say "Main chat" over
 // every view). A side chat's own name shows while that side chat is on screen, exactly as before. ----
@@ -1188,7 +1438,7 @@ function addDiscussionPickMessage(wb) {
   stampMsgTime(msg, Date.now());
   addOptions(msg, wb.name, wb.text);
   attachActions(msg, wb.threadId, wb.messageId, null, false);
-  scrollDown();
+  scrollDownSettled();
 }
 // Switching a Discussion pick removes the OLD write-back bubble and adds the NEW one, live, in one call — the
 // same pair of things recordPick just did on the server (chats.removeReply, then chats.addDiscussionPick).
@@ -1207,6 +1457,8 @@ function renderSavedMessage(t, m) {
   if (m.role === 'user') {
     const u = m.voice && /^[a-f0-9]{20}\.(webm|ogg|mp4)$/.test(m.voice.name)
       ? addUser('', null, m.quote, { src: '/api/voicenotes/' + m.voice.name, transcript: m.voice.transcript ? m.text : '' }, at)
+      : m.video && /^[a-f0-9]{20}\.(webm|mp4|mov)$/.test(m.video.name)
+      ? addUser(m.text, null, m.quote, null, at, '/api/videos/' + m.video.name)
       : addUser(m.picture ? (m.picture === 'screen' ? '[Screen snapshot — not saved] ' : '[Picture — not saved] ') + m.text : m.text, null, m.quote, null, at);
     attachActions(u, t.id, m.id, m.reaction, true);
     u.dataset.mid = m.id;   // search can scroll to this message

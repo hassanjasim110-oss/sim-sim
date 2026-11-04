@@ -76,7 +76,7 @@
     const p = window.SimSimSetup.getProfile();
     if (!p) return;
     try {
-      const d = await call('/api/profile', { callName: p.callName, gender: p.gender, age: p.age, state: p.state, botNames: p.botNames, themeId });
+      const d = await call('/api/profile', { callName: p.callName, gender: p.gender, age: p.age, country: p.country, state: p.state, language: p.language, botNames: p.botNames, themeId });
       window.SimSimSetup.setProfile(d.profile);   // repaint + Profile view, everywhere
       current.profile = d.profile;
       paint();
@@ -141,7 +141,7 @@
   window.addEventListener('simsim:settingschanged', e => { if (current) current.settings = e.detail; apply(e.detail); paint(); });
   window.addEventListener('simsim:voiceschanged', loadVoices);
 
-  // Theme cards: the same 8 themes and ids as setup.
+  // Theme cards: the same themes and ids as setup (Design 7 — the default — plus the original 8).
   THEMES.forEach(t => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'set-theme'; b.setAttribute('role', 'radio'); b.dataset.id = t.id;
@@ -326,7 +326,6 @@
     ['voice', 'Voice', '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>'],
     ['brief', 'Briefing & loops', '<path d="M8 6h12M8 12h12M8 18h12"/><path d="M3 6l1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/>'],
     ['perms', 'Permissions', '<path d="M12 3l7 4v5c0 5-3.3 7.8-7 9-3.7-1.2-7-4-7-9V7z"/>'],
-    ['apps', 'Connected apps', '<path d="M9 2v4M15 2v4M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/>'],
     ['data', 'Data controls', '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>'],
     ['vault', 'Saved logins', '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>'],
     ['help', 'Help & support', '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.3 2.4c-.9.3-1.3 1-1.3 2.1"/><path d="M12 17h.01"/>'],
@@ -398,5 +397,10 @@
   window.addEventListener('simsim:showchat', hideView);   // other views open via "show chat" first
   // A reliable, idempotent open for the Action Layer (founder, 2026-11-01): openView() used to TOGGLE; now it is
   // a modal, so opening it again (the gear, or "open Settings" in chat) just leaves it open — show() always opens.
-  window.SimSimSettings = { show: openView, isOpen: () => !$('settingsView').hidden };
+  // One group's current allow|ask|never, for client-only gates (Camera/Gallery) that have no Action-Layer tool to
+  // carry the check server-side. Defaults to 'allow' before settings have loaded, matching the server's own default.
+  function permissionFor(group) { return (current && current.settings.permissions && current.settings.permissions[group]) || 'allow'; }
+  // "Always allow <group>": flips one group to 'allow' and saves it, whether or not the Settings view is open.
+  function alwaysAllow(group) { return save({ permissions: { [group]: 'allow' } }); }
+  window.SimSimSettings = { show: openView, isOpen: () => !$('settingsView').hidden, permissionFor, alwaysAllow };
 })();

@@ -4,11 +4,52 @@
 (function (root) {
   const GENDERS = ['Female', 'Male', 'Other', 'Prefer not to say'];
 
-  const STATES = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
+  // 50 states + the District of Columbia (founder, 2026-11-04 — "Pretty dropdowns + Country + Language"): used as
+  // the State list whenever Country = United States; any other country's state/province/region is free text instead.
+  const STATES = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'District of Columbia', 'Florida', 'Georgia',
     'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
     'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
     'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
     'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'];
+
+  // The standard ~195-country list, alphabetical by English short name. Stored on the profile as plain text (no ISO
+  // codes needed elsewhere in the app, unlike Language below, which has to carry a real code for the speech APIs).
+  const COUNTRIES = ['Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria',
+    'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan',
+    'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia',
+    'Cameroon', 'Canada', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo (Congo-Brazzaville)', 'Costa Rica',
+    'Croatia', 'Cuba', 'Cyprus', 'Czechia (Czech Republic)', 'Democratic Republic of the Congo', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'Ecuador',
+    'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France',
+    'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau',
+    'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland',
+    'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kosovo', 'Kuwait',
+    'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg',
+    'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico',
+    'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar (Burma)', 'Namibia', 'Nauru',
+    'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman',
+    'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal',
+    'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe',
+    'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia',
+    'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria',
+    'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Timor-Leste', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey',
+    'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu',
+    'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'];
+  const DEFAULT_COUNTRY = 'United States';
+
+  // Spoken/written language — the one chosen set, founder's own order (not alphabetical): wires speech recognition
+  // (recognition.lang), the brain's reply language, and the browser voice picked for Speak answers.
+  const LANGUAGES = [
+    { name: 'English', code: 'en-US' }, { name: 'Spanish', code: 'es-ES' }, { name: 'Urdu', code: 'ur-PK' }, { name: 'Arabic', code: 'ar-SA' },
+    { name: 'Hindi', code: 'hi-IN' }, { name: 'Bengali', code: 'bn-IN' }, { name: 'Punjabi', code: 'pa-IN' }, { name: 'French', code: 'fr-FR' },
+    { name: 'German', code: 'de-DE' }, { name: 'Italian', code: 'it-IT' }, { name: 'Portuguese', code: 'pt-BR' }, { name: 'Dutch', code: 'nl-NL' },
+    { name: 'Polish', code: 'pl-PL' }, { name: 'Russian', code: 'ru-RU' }, { name: 'Ukrainian', code: 'uk-UA' }, { name: 'Turkish', code: 'tr-TR' },
+    { name: 'Persian', code: 'fa-IR' }, { name: 'Chinese — Simplified', code: 'zh-CN' }, { name: 'Chinese — Traditional', code: 'zh-TW' }, { name: 'Japanese', code: 'ja-JP' },
+    { name: 'Korean', code: 'ko-KR' }, { name: 'Vietnamese', code: 'vi-VN' }, { name: 'Thai', code: 'th-TH' }, { name: 'Indonesian', code: 'id-ID' },
+    { name: 'Malay', code: 'ms-MY' }, { name: 'Filipino', code: 'fil-PH' }, { name: 'Swahili', code: 'sw-KE' }, { name: 'Greek', code: 'el-GR' },
+    { name: 'Czech', code: 'cs-CZ' }, { name: 'Romanian', code: 'ro-RO' }, { name: 'Hungarian', code: 'hu-HU' }, { name: 'Swedish', code: 'sv-SE' },
+    { name: 'Norwegian', code: 'nb-NO' }, { name: 'Danish', code: 'da-DK' }, { name: 'Finnish', code: 'fi-FI' }, { name: 'Hebrew', code: 'he-IL' }
+  ];
+  const DEFAULT_LANGUAGE = 'en-US';
 
   // The two helper bots. Sim Sim is the third member and the chief; its name is fixed.
   const BOT_ROLES = [
@@ -20,6 +61,14 @@
   //    bubble = soft hover tint · userBubble / simBubble = message bubbles · accent / accent2 = brand pair (mic, avatar)
   //    accentText = accent that reads on the background · accentInk = selected labels · primary1/2 + onPrimary = text buttons
   const THEMES = [
+    // Design 7 (founder, 2026-11-03): the ChatGPT-structure reference's OWN colors — design-7-chatgpt-structure.html
+    // (flat light-gray sidebar, white main column, soft gray user pills, near-black text) — on the rebuilt structure.
+    // The reference itself has no accent color at all (every button is black); accent/accent2 here are used
+    // sparingly (the mic, the listening-pill dot, focus rings) — a quiet teal, never the loud brand orange.
+    { id: 'design7', name: 'Design 7', vibe: 'Clear', v: {
+      bg: '#ffffff', side: '#f9f9f9', surface: '#f7f7f7', line: '#ececec', text: '#111111', muted: '#8e8e8e', bubble: '#f4f4f4',
+      userBubble: '#f4f4f4', simBubble: '#ffffff', accent: '#10a37f', accent2: '#34c796', accentText: '#0e8c6d', accentInk: '#0b6f57',
+      primary1: '#111111', primary2: '#000000', onPrimary: '#ffffff' } },
     { id: 'orange', name: 'Sim Sim Orange', vibe: 'Warm', v: {
       bg: '#fffaf5', side: '#f9eee2', surface: '#fffcf9', line: '#efe2d3', text: '#2a211b', muted: '#7d6a5b', bubble: '#f6ebdf',
       userBubble: '#fbe4d4', simBubble: '#fffcf9', accent: '#e8582a', accent2: '#ffa24a', accentText: '#c94818', accentInk: '#b23c10',
@@ -61,7 +110,9 @@
     { id: 'puff', name: 'Puff' }, { id: 'kit', name: 'Kit' }, { id: 'pip', name: 'Pip' }
   ];
 
-  const data = { GENDERS, STATES, BOT_ROLES, THEMES, FACES, DEFAULT_THEME: 'orange' };
+  // Design 7 (founder, 2026-11-03) is now the default presentation — what a fresh/new arrival sees, and setup's
+  // own starting pick. Sim Sim Orange and every other theme stay in the list, unchanged and selectable.
+  const data = { GENDERS, STATES, COUNTRIES, DEFAULT_COUNTRY, LANGUAGES, DEFAULT_LANGUAGE, BOT_ROLES, THEMES, FACES, DEFAULT_THEME: 'design7' };
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
   else root.SIMSIM_DATA = data;
 })(this);

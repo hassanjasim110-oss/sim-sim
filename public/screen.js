@@ -130,6 +130,9 @@
 
   // ---- The mini chat ----
   function scroll() { E.thread.scrollTop = E.thread.scrollHeight; }
+  // A render can settle its final height a moment after insertion (founder's end-check round 5B, 2026-11-03) —
+  // scroll now AND once more after the next two paint frames, so a reply (or a picture) is never left out of view.
+  function scrollSettled() { scroll(); requestAnimationFrame(() => requestAnimationFrame(scroll)); }
   function el(tag, cls) { const n = E.thread.ownerDocument.createElement(tag); if (cls) n.className = cls; return n; }
   function note(text) {
     const p = el('p', 'sp-note');
@@ -151,6 +154,29 @@
     scroll();
     return d;
   }
+  // A made or edited picture, shown in the mini chat the same way the main chat shows one (founder's end-check
+  // round 5B, 2026-11-03): the reply used to always render as plain text even when the server returned a real
+  // picture — "make a picture showing X" and "add an arrow pointing to X" could both succeed server-side and
+  // still show nothing here, since data.image was never looked at. Tap/Enter opens it full size, same as everywhere else.
+  function showPicture(slot, image, line) {
+    const card = el('figure', 'img-card');
+    const img = el('img', 'img-open');
+    img.src = image.url;
+    img.alt = 'Picture of ' + (image.subject || 'this');
+    img.tabIndex = 0;
+    img.setAttribute('role', 'button');
+    img.setAttribute('aria-label', 'Open the picture full size');
+    img.addEventListener('load', scrollSettled);
+    img.addEventListener('error', () => { img.replaceWith(Object.assign(el('p', 'img-gone'), { textContent: 'This picture was deleted.' })); });
+    const openFull = () => window.SimSimMedia && window.SimSimMedia.open({ kind: 'image', url: image.url, title: 'Picture of ' + (image.subject || 'this') });
+    img.addEventListener('click', openFull);
+    img.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFull(); } });
+    const cap = el('figcaption');
+    cap.textContent = line;
+    card.append(img, cap);
+    slot.replaceChildren(card);
+    scrollSettled();
+  }
 
   // One action = at most one brain call. withSnapshot: a fresh frame (or the frozen, circled one) rides the question.
   async function ask(text, withSnapshot) {
@@ -171,7 +197,8 @@
       const { r, data } = await chat.postChat(question, snap ? { picture: snap, screen: true, circled } : {});
       if (r.status === 401) { window.dispatchEvent(new Event('simsim:needsignin')); return; }
       if (r.ok && typeof data.reply === 'string' && !(snap && data.pictureNote)) {
-        slot.textContent = data.reply;
+        if (data.image) showPicture(slot, data.image, data.reply);   // a made or edited picture — never plain text when there is one
+        else slot.textContent = data.reply;
         chat.speak(data.reply);
         spoke = true;
         if (data.turnId && window.SimSimMemory) window.SimSimMemory.learnFrom(data.turnId, m);   // learns from WORDS only
@@ -186,7 +213,7 @@
     } finally {
       busy = false;
       if (!spoke) chat.idle();
-      scroll();
+      scrollSettled();
     }
   }
   // Every message sent from the mini chat — typed, or dictated with its mic — carries a snapshot taken AT THE MOMENT

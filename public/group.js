@@ -101,6 +101,9 @@
 
   // ---- One group question ----
   function scrollDown() { $('gthread').scrollTop = $('gthread').scrollHeight; }
+  // A render can settle its final height a moment after insertion (founder's end-check round 5B, 2026-11-03) —
+  // scroll now AND once more after the next two paint frames, so the newest answer is never left just out of view.
+  function scrollDownSettled() { scrollDown(); requestAnimationFrame(() => requestAnimationFrame(scrollDown)); }
 
   function memberCard(m) {
     const d = document.createElement('div');
@@ -233,7 +236,7 @@
       txt.textContent = r.e.message === 'signed out' ? '' : 'This answer could not come through.';
     }
     paintTurn(turn);
-    scrollDown();
+    scrollDownSettled();
   }
 
   // ---- Picking: records right away (the counter, the main-chat write-back) — switch freely until the next
@@ -308,7 +311,7 @@
     restore();   // after a page reload: this session's rounds come back
     $('input').placeholder = 'Ask your team…';
     chat.clearReply();           // a reply belongs to the chat it was started in
-    $('attach').hidden = true;   // pictures and Screen Watch are for the 1-on-1 chat only
+    $('attachMenuBtn').hidden = true;   // pictures and Screen Watch are for the 1-on-1 chat only
     $('watchBtn').hidden = true;
     $('attachRemove').click();
     $('input').focus();
@@ -319,7 +322,7 @@
     row.classList.remove('on'); row.removeAttribute('aria-current');
     $('input').placeholder = 'Talk or type to Sim Sim…';
     chat.clearReply();
-    $('attach').hidden = false;
+    $('attachMenuBtn').hidden = false;
     $('watchBtn').hidden = false;
     if (restoreChat) {
       $('thread').hidden = false; $('composer').hidden = false;

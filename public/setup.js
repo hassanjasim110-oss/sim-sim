@@ -17,10 +17,19 @@
     userBubble: '--user-bubble', simBubble: '--sim-bubble', accent: '--accent', accent2: '--accent2',
     accentText: '--accent-text', accentInk: '--accent-ink', primary1: '--primary-1', primary2: '--primary-2', onPrimary: '--on-primary'
   };
+  // Optional, per-theme overrides (founder, 2026-11-04 — "Theme colors from Muse"): most themes don't set these, so
+  // the CSS var() fallback (styles.css) quietly takes over — Design 7 and Midnight are byte-for-byte unchanged.
+  // sendBg/sendInk: Muse's own Send button is a different color from its other primary buttons (a pale circle with
+  // a near-black arrow, not solid blue with white). composerBg: Muse's dark composer is a shade lighter than its cards.
+  const OPTIONAL_VARS = { sendBg: '--send-bg', sendInk: '--send-ink', composerBg: '--composer-bg' };
   function themeById(id) { return THEMES.find(t => t.id === id) || THEMES[0]; }
   function applyTheme(id) {
     const t = themeById(id), root = document.documentElement;
     for (const k in VARS) root.style.setProperty(VARS[k], t.v[k]);
+    for (const k in OPTIONAL_VARS) {
+      if (t.v[k]) root.style.setProperty(OPTIONAL_VARS[k], t.v[k]);
+      else root.style.removeProperty(OPTIONAL_VARS[k]);   // not set for this theme: let the CSS fallback take over
+    }
     root.toggleAttribute('data-dark', !!t.dark);
   }
   applyTheme(DEFAULT_THEME);

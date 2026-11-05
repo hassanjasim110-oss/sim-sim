@@ -304,7 +304,7 @@ button.pill{cursor:default;text-align:left}
 
 /* composer (Design 7): ONE round pill — soft shadow, a near-invisible hairline, no heavy border */
 .composer{padding:10px 28px 20px}
-.cbox{max-width:700px;margin:0 auto;display:flex;align-items:flex-end;gap:6px;background:var(--surface);
+.cbox{max-width:700px;margin:0 auto;display:flex;align-items:flex-end;gap:6px;background:var(--composer-bg, var(--surface));
   border:1px solid var(--line);border-radius:var(--r-pill);padding:7px 7px 7px 20px;
   box-shadow:var(--shadow-2);
   transition:box-shadow var(--ease)}
@@ -323,7 +323,7 @@ button.pill{cursor:default;text-align:left}
 /* voice capture (after "Sim Sim" or the mic button): the question bar glows while it takes the request */
 .cbox.capturing{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent),var(--shadow-2)}
 .mic[aria-pressed="true"]{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 22%,transparent);animation:pulse 1.2s infinite}
-.send{background:var(--primary-grad);color:var(--on-primary)}
+.send{background:var(--send-bg, var(--primary-grad));color:var(--send-ink, var(--on-primary))}
 .send:hover{box-shadow:0 4px 12px -4px var(--accent)}
 .send:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
 /* Send becomes Stop while a reply is in flight (founder, 2026-10-31) */

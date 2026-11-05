@@ -887,6 +887,12 @@ async function handleChat(req, res) {
   if (!message && !picture && !data[VIDEO]) return sendJson(res, 400, { error: 'Empty message.' });
   if (data[VIDEO] && !message) {
     const reply = "Got it — your video is here in the chat. I can't see inside video files, so tell me about it if you'd like me to answer about it.";
+    // Video honesty in follow-up turns (founder, 2026-11-04): this used to skip rememberTurn entirely — a fixed
+    // reply, no brain call, so nothing seemed to need it — but that left s.history with zero trace this video was
+    // ever shared. A later turn in the SAME session ("what's in the video I just shared?") then had nothing to go
+    // on and could flatly deny a video was ever attached. Marked the same way answerChat already marks a captioned
+    // attach turn, so a follow-up sees exactly what a reopened thread's own contextOf() would show it.
+    rememberTurn(s, '[attached a video; its contents are not visible to you]', reply);
     return sendReply(res, s, data, message, null, { reply,
       process: { command: 'A video with no caption — answered with a fixed honest line (no brain call)' } });
   }
@@ -2696,6 +2702,16 @@ server.listen(PORT, () => {
   console.log('SIM SIM is running at ' + url);
   console.log(process.env.META_API_KEY ? 'Brain: Meta Model API (' + META_MODEL + ')' : 'Brain: NOT connected (no META_API_KEY) - replies are the stub sentence');
   console.log('Doors: dev door ' + (DEV_DOOR ? 'on' : 'off') + ' · preview lock ' + (PREVIEW_ONLY_EMAIL ? 'set' : 'unset') + '.');
+  // Build self-check (founder, 2026-11-04 — "Surgical round: Language + Hearing, proof in the report"): a plain,
+  // falsifiable line in the boot log, settling in one glance whether THIS running process actually has the
+  // Language-instruction fix and the Hearing dictionary — both were verified correct in the file on disk, by
+  // direct execution, every time; if this line is ever missing from a running server's log, the file on disk and
+  // the process actually serving requests are two different things, which no amount of re-reading the file can show.
+  {
+    const hCheck = hearing.correct('hey Simpson, what is the weather', []).text === 'hey Sim Sim, what is the weather';
+    const lCheck = memory.languageLine({ callName: 'x', language: 'ur-PK' }).includes('Language: reply to x in Urdu');
+    console.log('Build check: hearing dictionary ' + (hCheck ? 'OK' : 'BROKEN') + ' · language instruction ' + (lCheck ? 'OK' : 'BROKEN') + '.');
+  }
   if (TEST_MODE) console.log('*** TEST MODE ON - no sign-in: every visitor is local-test-user. Remove SIMSIM_TEST_MODE=1 from .env to turn it off. ***');
   if (TEST_MODE && DEV_DOOR) console.log('(SIMSIM_DEV_DOOR=1 is ignored while test mode is on.)');
   if (DEV_DOOR && !TEST_MODE) console.log('*** DEV DOOR ON - type any email to enter, no verification. Remove SIMSIM_DEV_DOOR=1 from .env to turn it off. ***');
